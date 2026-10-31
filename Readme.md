@@ -2,7 +2,7 @@
 
 This is a simulator. Not an emulator (yet).
 
-For any name proposals, please comment them in #2
+For any name proposals, please comment them in [#2](https://github.com/Hyperloop-UPV/super-simulador/issues/2)
 
 ### Roadmap
 
