@@ -54,6 +54,44 @@ load_symbol_or_err :: proc(lib: dynlib.Library, dllpath, symbol: string, fn: ^ra
 
 /* --------------------------------------------- */
 
+/*
+Creates event queue channels
+*/
+create_channels :: proc(count: int, allocator: runtime.Allocator) -> []chan.Chan(usim.Event, .Both)
+{
+  channels := make([]chan.Chan(usim.Event, .Both), count, allocator)
+  for idx := 0; idx < count; idx += 1 {
+    err: runtime.Allocator_Error
+    channels[idx], err = chan.create_buffered(
+      chan.Chan(usim.Event, .Both),
+      usim.QUEUE_MAX_SIZE,
+      allocator,
+    )
+
+    if err != nil {
+      log.errorf("Could not create event queue channel: %v", err)
+      os.exit(1)
+    }
+  }
+
+  return channels
+}
+
+/*
+Destroy event queue channels
+
+Assumes channels was allocated with an arena allocator,
+because it doesn't free `channels`, only destroys each one
+*/
+destroy_channels :: proc(channels: []chan.Chan(usim.Event, .Both))
+{
+  for c in channels {
+    chan.destroy(c)
+  }
+}
+
+/* --------------------------------------------- */
+
 global_should_quit: bool
 usim_threads: []^thread.Thread
 fw_threads: []^thread.Thread
@@ -103,14 +141,12 @@ main :: proc()
   /* --------------------------------------------- */
 
   memories := make([]^peripherals.Memory, len(opt.board), arena_allocator)
-  channels := make([]chan.Chan(usim.Event, .Both), len(opt.usim), arena_allocator)
+  channels := create_channels(len(opt.usim), arena_allocator)
   defer {
     for m in memories {
       destroy_board(m)
     }
-    for c in channels {
-      chan.destroy(c)
-    }
+    destroy_channels(channels)
   }
   usims := make([]USim_Thread_Data, len(opt.usim), arena_allocator)
   usim_threads = make([]^thread.Thread, len(opt.usim), arena_allocator)
@@ -123,19 +159,6 @@ main :: proc()
   sync.barrier_init(&stepwise_barrier, len(fw_threads))
 
   /* --------------------------------------------- */
-
-  for idx := 0; idx < len(channels); idx += 1 {
-    chan_err: runtime.Allocator_Error
-    channels[idx], chan_err = chan.create_buffered(
-      chan.Chan(usim.Event, .Both),
-      usim.QUEUE_MAX_SIZE,
-      context.allocator,
-    )
-    if chan_err != nil {
-      log.errorf("Could not create event queue channel: %v", chan_err)
-      os.exit(1)
-    }
-  }
 
   start_tick := time.tick_now()
   for board, board_idx in opt.board {
