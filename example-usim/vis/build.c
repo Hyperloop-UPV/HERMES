@@ -21,7 +21,7 @@ bool build_imgui(vl_file_paths *libs)
   vl_cmd cmd = {0};
   if(VL_NeedsRebuild("bin/imgui" VL_OBJ_EXT, "vendor/imgui/imgui.cpp")) {
 #if OS_WINDOWS
-    CmdAppend(&cmd, "cl", "-c", "vendor/imgui/*.cpp", "-Zi", "-I", "include", "/link", "/libpath:lib", "SDL3.lib", "-incremental:no", "-opt:ref");
+    CmdAppend(&cmd, "cl", "-c", "vendor/imgui/*.cpp", "-Z7", "-I", "include", "/link", "/libpath:lib", "SDL3.lib", "-incremental:no", "-opt:ref");
     if(!CmdRun(&cmd)) {
       VL_Log(VL_ERROR, "Could not build dear imgui libs");
       return false;

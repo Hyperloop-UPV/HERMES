@@ -21,6 +21,7 @@ import "core:time"
 import "core:thread"
 import "core:dynlib"
 import "core:sync/chan"
+import "core:c/libc"
 
 import custom_log "logger"
 import spall "spall_wrapper"
@@ -58,6 +59,7 @@ fw_threads: []^thread.Thread
 
 sim_signal_handler :: proc "contextless"()
 {
+  libc.printf("recieved signal, closing simulator...\n")
   context = runtime.default_context()
 
   // we wait for fw threads first because they will likely exit before usim threads
