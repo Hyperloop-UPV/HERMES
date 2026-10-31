@@ -16,6 +16,7 @@ import "base:runtime"
 import "core:os"
 import "core:fmt"
 import "core:log"
+import "core:mem"
 import "core:time"
 import "core:thread"
 import "core:dynlib"
@@ -51,10 +52,24 @@ load_symbol_or_err :: proc(lib: dynlib.Library, dllpath, symbol: string, fn: ^ra
 
 /* --------------------------------------------- */
 
+global_should_quit: bool
+usim_threads: []^thread.Thread
+fw_threads: []^thread.Thread
+
 sim_signal_handler :: proc "contextless"()
 {
-  // TODO: Join all threads here.
+  context = runtime.default_context()
+
+  // we wait for fw threads first because they will likely exit before usim threads
+
+  global_should_quit = true
+  // wait until fw_threads quit 'voluntarily'
+  thread.join_multiple(..fw_threads[:])
+  // wait until usim threads quit 'voluntarily'
+  thread.join_multiple(..usim_threads[:])
 }
+
+/* --------------------------------------------- */
 
 main :: proc()
 {
@@ -77,26 +92,28 @@ main :: proc()
   context.logger = custom_log.create_logger(opt = {.Level, .Time, .Terminal_Color})
   defer custom_log.destroy_logger(context.logger)
 
+  arena: mem.Dynamic_Arena
+  mem.dynamic_arena_init(&arena)
+  defer mem.dynamic_arena_destroy(&arena)
+  arena_allocator := mem.dynamic_arena_allocator(&arena)
+
   /* --------------------------------------------- */
 
-  memories := make([]^peripherals.Memory, len(opt.board))
+  memories := make([]^peripherals.Memory, len(opt.board), arena_allocator)
+  channels := make([]chan.Chan(usim.Event, .Both), len(opt.usim), arena_allocator)
   defer {
     for m in memories {
       destroy_board(m)
     }
-    delete(memories)
-  }
-  channels := make([]chan.Chan(usim.Event, .Both), len(opt.usim))
-  defer {
     for c in channels {
       chan.destroy(c)
     }
-    delete(channels)
   }
-  usims := make([]USim_Thread_Data, len(opt.usim))
-  defer delete(usims)
-  usim_threads := make([]^thread.Thread, len(opt.usim))
-  defer delete(usim_threads)
+  usims := make([]USim_Thread_Data, len(opt.usim), arena_allocator)
+  usim_threads = make([]^thread.Thread, len(opt.usim), arena_allocator)
+
+  fw_thread_data := make([]FW_Thread_Data, len(opt.board), arena_allocator)
+  fw_threads = make([]^thread.Thread, len(opt.board), arena_allocator)
 
   /* --------------------------------------------- */
 
@@ -118,7 +135,7 @@ main :: proc()
     memories[board_idx] = create_board(board, channels, start_tick)
   }
 
-  global_should_quit: bool
+  // TODO: This initialization probably should be in simulator_usim_threads.odin...
   for u, usim_idx in opt.usim {
     td := &usims[usim_idx]
     td^ = {
@@ -167,13 +184,8 @@ main :: proc()
   /* --------------------------------------------- */
 
   step_time := 10 * time.Microsecond
-  thread_data := make([]FW_Thread_Data, len(opt.board))
-  defer delete(thread_data)
-  board_threads := make([]^thread.Thread, len(opt.board))
-  defer delete(board_threads)
-
   for mem, idx in memories {
-    board_threads[idx] = launch_board(&thread_data[idx], mem, &global_should_quit, opt.max_iterations, step_time)
+    fw_threads[idx] = launch_board(&fw_thread_data[idx], mem, &global_should_quit, opt.max_iterations, step_time)
   }
 
   /* --------------------------------------------- */
@@ -181,11 +193,11 @@ main :: proc()
   if opt.max_time > 0 {
     time.sleep(opt.max_time)
     global_should_quit = true
-    // wait until board_threads quit 'voluntarily'
-    thread.join_multiple(..board_threads[:])
+    // wait until fw_threads quit 'voluntarily'
+    thread.join_multiple(..fw_threads[:])
   } else {
-    // sleep until all board_threads finish
-    thread.join_multiple(..board_threads[:])
+    // sleep until all fw_threads finish
+    thread.join_multiple(..fw_threads[:])
   }
 
   // wait until all usim threads quit 'voluntarily'

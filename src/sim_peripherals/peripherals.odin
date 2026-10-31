@@ -444,6 +444,15 @@ enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Even
     subs &= ~(1 << idx)
 
     ch := memory.channels[idx]
+    if chan.is_closed(ch.impl) {
+      // remove the event from the hashmap
+      subs_old: u64
+      subs_old, found = memory.subscribed_events[event_kind]
+      subs_old &= ~(1 << idx)
+      memory.subscribed_events[event_kind] = subs_old
+      continue
+    }
+
     // needs some amount of time for timeout because another writer could be blocking
     status := chan.send_with_timeout(ch, event^, 8*time.Microsecond)
     if status != .Ok {
