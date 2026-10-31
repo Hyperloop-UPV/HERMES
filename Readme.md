@@ -2,6 +2,8 @@
 
 This is a simulator. Not an emulator (yet).
 
+For any name proposals, please comment them in #2
+
 ### Roadmap
 
 TBD. To see short term wanted changes, see `TODO.md`.
