@@ -199,13 +199,13 @@ do_linux_syscalls_codegen :: proc() -> bool
       "-Wall", "-Wextra",
       "-Werror",
     }
-    
+
     run_command(cmd, cwd = "codegen") or_return
-    
+
     cmd = []string{
       "bin/codegen",
     }
-    
+
     run_command(cmd) or_return
   }
 
@@ -237,8 +237,8 @@ C_print_any_elem_from_odin :: proc(f: ^os.File, type: ^reflect.Type_Info, name: 
     }
 
     case runtime.Type_Info_Complex: { assert(false, "unsupported") }
-    case runtime.Type_Info_Quaternion: { assert(false, "unsupported") } 
-    case runtime.Type_Info_Any: { assert(false, "unsupported") } 
+    case runtime.Type_Info_Quaternion: { assert(false, "unsupported") }
+    case runtime.Type_Info_Any: { assert(false, "unsupported") }
     case runtime.Type_Info_Type_Id: { assert(false, "unsupported") }
     case runtime.Type_Info_Enumerated_Array: { assert(false, "unsupported") }
     case runtime.Type_Info_Union: { assert(false, "unsupported") }

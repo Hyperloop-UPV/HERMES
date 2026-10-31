@@ -11,6 +11,38 @@ import "core:log"
 
 import win "core:sys/windows"
 
+@(private="file")
+internal_signal_handler: proc "contextless"()
+
+@(private="file")
+signal_handler :: proc "system"(ctrl_type: win.DWORD) -> win.BOOL
+{
+  if (ctrl_type == win.CTRL_C_EVENT) || (ctrl_type == win.CTRL_BREAK_EVENT) || (ctrl_type == win.CTRL_CLOSE_EVENT) {
+    if internal_signal_handler != nil {
+      internal_signal_handler()
+    }
+    os.exit(1)
+    // (never gets here) return true
+  }
+  // we don't handle other ctrl_type events here
+  return false
+}
+
+setup_signal_handler :: proc(handler: proc "contextless"())
+{
+  internal_signal_handler = handler
+
+  win.SetConsoleCtrlHandler(signal_handler, win.TRUE)
+
+  // Do we want to catch the following:
+	// - Asserts and panics;
+	// - Out of Bounds exeptions;
+	// - Arithmetic errors; and
+	// - Segmentation faults (illegal memory access).
+	// ? Then use this
+	// win.AddVectoredExceptionHandler(0, signal_handler)
+}
+
 init_memory :: proc(totalMem: uint) -> rawptr
 {
   MEM_WRITE_WATCH :: 0x00200000
@@ -36,7 +68,7 @@ destroy_memory :: proc(base: rawptr)
 get_written_pages :: proc(base: rawptr, reqMem: [^]rawptr, pageCount: ^uint, totalMem: uint) -> bool
 {
   WRITE_WATCH_FLAG_RESET :: 0x01
-  
+
   ok: bool = true
   // pageSize is ignored since we already know it's 4096 on windows
   pageSize: u32
