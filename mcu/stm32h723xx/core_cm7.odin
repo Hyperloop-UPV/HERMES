@@ -5,6 +5,12 @@
 #+vet shadowing
 package stm32h723xx
 
+/* File containing struct definitions for all core_cm7 peripherals
+ *
+ * Created on: 8 oct. 2026
+ *   Author: victor
+ */
+
 /* System Control and ID Register not in the SCB */
 SCnSCB :: struct {
   RESERVED0: [1]u32,

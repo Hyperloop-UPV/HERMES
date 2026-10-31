@@ -5,6 +5,13 @@
 #+vet shadowing
 package logger
 
+/* File containing custom logger for simulator
+ * Outputs local time instead of UTC
+ *
+ * Created on: 11 oct. 2026
+ *   Author: victor
+ */
+
 import "base:runtime"
 
 import "core:os"

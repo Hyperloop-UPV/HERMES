@@ -5,6 +5,13 @@
 #+vet shadowing
 package peripherals
 
+/* File containing General Purpose Input Output simulation for STM32H723xx
+ * It is currently unfinished but works for what is being simulated
+ *
+ * Created on: 11 oct. 2026
+ *   Author: victor
+ */
+
 import "core:time"
 
 import mcu "mcu:stm32h723xx"

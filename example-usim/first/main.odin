@@ -5,6 +5,12 @@
 #+vet shadowing
 package example_usim
 
+/* File containing very simple example of a micro simulator implemented in odin
+ *
+ * Created on: 25 oct. 2026
+ *   Author: victor
+ */
+
 import "base:runtime"
 import "core:fmt"
 import "core:time"

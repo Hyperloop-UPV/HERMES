@@ -5,6 +5,14 @@
 #+vet shadowing
 package simulator
 
+/* File containing
+ *  - dll loading for micro simulators
+ *  - thread code for micro simulators
+ *
+ * Created on: 31 oct. 2026
+ *   Author: victor
+ */
+
 import "core:os"
 import "core:log"
 import "core:mem"

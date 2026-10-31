@@ -5,8 +5,14 @@
 #+vet shadowing
 package peripherals
 
-/* NOTE: GPV (Global Programmer View) is alone 284KiB :( */
-  
+/* File containing
+ * - definitions for all common structures used in firmware simulation
+ * - enqueue_event: event handling common in all peripherals
+ *
+ * Created on: 8 oct. 2026
+ *   Author: victor
+ */
+
 import "base:runtime"
 import "base:intrinsics"
 
@@ -41,7 +47,7 @@ Returns:
 Setup_Proc :: #type proc(rawctx: rawptr) -> rawptr
 
 /*
-Step function that will be called when doing a single step(), 
+Step function that will be called when doing a single step(),
 whether it is a fixed step or a variable step
 
 Arguments:
@@ -74,7 +80,7 @@ USim_Event_Watch_Data :: struct {
   ctx: rawptr,
 }
 
-/* Some peripherals might use more than a single page here, 
+/* Some peripherals might use more than a single page here,
  * they won't be repeated but in Memory.handlers they will be
  */
 SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
@@ -88,7 +94,7 @@ SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
   {Stub_setup, Stub_step, Stub_handler, nil}, /* CoreDebug */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* MPU */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* FPU */
-  
+
   {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM2 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM3 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM4 */
@@ -97,18 +103,18 @@ SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
   {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM7 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM13 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM14 */
-  
+
   {Stub_setup, Stub_step, Stub_handler, nil}, /* VREFBUF */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* RTC */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* WWDG1 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* IWDG1 */
-  
+
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SPI2 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SPI3 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SPI4 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SPI5 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SPI6 */
-  
+
   {Stub_setup, Stub_step, Stub_handler, nil}, /* USART2 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* USART3 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* USART6 */

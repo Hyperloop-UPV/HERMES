@@ -6,6 +6,14 @@
 #+build windows
 package simulator_platform
 
+/* File containing
+ *  - OS specific implementations of any needed functionality not in standard library
+ * for windows
+ *
+ * Created on: 11 oct. 2026
+ *   Author: victor
+ */
+
 import "core:os"
 import "core:log"
 

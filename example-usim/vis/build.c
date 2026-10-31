@@ -7,6 +7,12 @@
 #define CCompiler CCompiler_GPlusPlus
 #endif
 
+/* File containing build script for simple visual micro simulator
+ *
+ * Created on: 27 oct. 2026
+ *   Author: victor
+ */
+
 /*
 in libs, only an sdl static library is expected
 */

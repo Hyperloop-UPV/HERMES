@@ -6,6 +6,12 @@
 #+no-instrumentation
 package spall_wrapper
 
+/* File containing a spall wrapper with easy disabling using PROFILING configurable constant
+ *
+ * Created on: 12 oct. 2026
+ *   Author: victor
+ */
+
 import "core:time"
 import "core:sync"
 import "core:prof/spall"

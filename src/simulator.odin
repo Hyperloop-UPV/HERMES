@@ -5,6 +5,12 @@
 #+vet shadowing
 package simulator
 
+/* File containing main program for simulator
+ *
+ * Created on: 8 oct. 2026
+ *   Author: victor
+ */
+
 import "base:runtime"
 
 import "core:os"

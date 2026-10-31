@@ -7,6 +7,12 @@
 
 #include <SDL3/SDL.h>
 
+/* File containing simple visual micro simulator
+ *
+ * Created on: 27 oct. 2026
+ *   Author: victor
+ */
+
 #define TARGET_FPS 60
 #define TARGET_NS (1000000000 / TARGET_FPS)
 
@@ -92,7 +98,7 @@ bool Init_Window(USim_Memory *mem)
   }
   SDL_SetRenderVSync(mem->renderer, 1);
 
-  SDL_SetWindowPosition(mem->window, 
+  SDL_SetWindowPosition(mem->window,
     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED
   );
   SDL_ShowWindow(mem->window);

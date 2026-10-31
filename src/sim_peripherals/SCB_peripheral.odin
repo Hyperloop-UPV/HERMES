@@ -5,6 +5,15 @@
 #+vet shadowing
 package peripherals
 
+/* File containing SCB simulation for core_cm7
+ * Includes:
+ *  - vector table
+ * It is currently unfinished but works for what is being simulated
+ *
+ * Created on: 9 oct. 2026
+ *   Author: victor
+ */
+
 import "core:time"
 import "core:dynlib"
 
@@ -188,7 +197,7 @@ get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
   vector_table[mcu.TIM23_IRQn], found = get_symbol(library, "TIM23_IRQHandler")
   vector_table[mcu.TIM24_IRQn], found = get_symbol(library, "TIM24_IRQHandler")
 }
- 
+
 //////////////////////////////////////////
 
 // Reserved 0x0000 address is -16, WWDG1 is 0
@@ -199,7 +208,7 @@ get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
 
 SCB_handler :: proc(rawctx, this_rawctx: rawptr)
 {
-  
+
 }
 
 SCB_setup :: proc(rawctx: rawptr) -> rawptr

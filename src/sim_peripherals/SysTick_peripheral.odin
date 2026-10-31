@@ -5,6 +5,12 @@
 #+vet shadowing
 package peripherals
 
+/* File containing SysTick simulation for core_cm7
+ *
+ * Created on: 8 oct. 2026
+ *   Author: victor
+ */
+
 import "core:os"
 import "core:fmt"
 import "core:time"

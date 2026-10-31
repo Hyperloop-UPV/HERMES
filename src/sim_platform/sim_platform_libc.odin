@@ -6,6 +6,14 @@
 #+build linux, darwin, freebsd, openbsd, netbsd
 package simulator_platform
 
+/* File containing
+ *  - OS specific implementations of any needed functionality in standard library
+ * for OSes other than windows
+ *
+ * Created on: 13 oct. 2026
+ *   Author: victor
+ */
+
 import "core:os"
 import "core:c/libc"
 

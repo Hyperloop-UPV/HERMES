@@ -5,6 +5,12 @@
 #+vet shadowing
 package stm32h723xx
 
+/* File containing all STM32h723xx and core_cm7 peripherals in a single struct
+ *
+ * Created on: 22 oct. 2026
+ *   Author: victor
+ */
+
 PERIPHERAL_COUNT :: 245
 
 Raw_Memory :: struct {

@@ -5,6 +5,13 @@
 #+vet shadowing
 package usim
 
+/* File containing micro simulator API in odin
+ * also used to autogenerate usim.h
+ *
+ * Created on: 24 oct. 2026
+ *   Author: victor
+ */
+
 import "core:dynlib"
 
 /*

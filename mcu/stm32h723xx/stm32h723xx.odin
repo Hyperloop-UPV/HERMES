@@ -5,6 +5,14 @@
 #+vet shadowing
 package stm32h723xx
 
+/* File containing
+ * - struct definitions for all STM32h723xx peripherals
+ * - some constants like IRQ numbers
+ *
+ * Created on: 8 oct. 2026
+ *   Author: victor
+ */
+
 /* Cortex-M Processor Exceptions Numbers */
 
 NonMaskableInt_IRQn     :: -14

@@ -5,6 +5,13 @@
 #+vet shadowing
 package simulator
 
+/* File containing command line parsing for simulator
+ * Also includes cfg.json parsing
+ *
+ * Created on: 23 oct. 2026
+ *   Author: victor
+ */
+
 import "base:runtime"
 import "core:os"
 import "core:fmt"
@@ -150,7 +157,7 @@ parse_cfg_file :: proc(file: string, opt: ^Sim_Options)
         os.exit(1)
       }
 
-      cfg.dll = fmt.aprintf("%s." + dynlib.LIBRARY_FILE_EXTENSION, 
+      cfg.dll = fmt.aprintf("%s." + dynlib.LIBRARY_FILE_EXTENSION,
         parse_json_object_field(file, "dll", "usims array element", obj, json.String),
       )
       attached := parse_json_object_field(file,
