@@ -18,6 +18,7 @@ import "core:fmt"
 import "core:log"
 import "core:mem"
 import "core:time"
+import "core:sync"
 import "core:thread"
 import "core:dynlib"
 import "core:sync/chan"
@@ -117,6 +118,10 @@ main :: proc()
   fw_thread_data := make([]FW_Thread_Data, len(opt.board), arena_allocator)
   fw_threads = make([]^thread.Thread, len(opt.board), arena_allocator)
 
+  stepwise_barrier: sync.Barrier
+  // TODO: When stepwise usims are done, this must be len(fw_threads) + opt.stepwise_usim_count
+  sync.barrier_init(&stepwise_barrier, len(fw_threads))
+
   /* --------------------------------------------- */
 
   for idx := 0; idx < len(channels); idx += 1 {
@@ -187,7 +192,14 @@ main :: proc()
 
   step_time := 10 * time.Microsecond
   for mem, idx in memories {
-    fw_threads[idx] = launch_board(&fw_thread_data[idx], mem, &global_should_quit, opt.max_iterations, step_time)
+    fw_threads[idx] = launch_board(
+      &fw_thread_data[idx],
+      mem,
+      &stepwise_barrier,
+      &global_should_quit,
+      opt.max_iterations,
+      step_time,
+    )
   }
 
   /* --------------------------------------------- */

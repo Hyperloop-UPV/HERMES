@@ -17,6 +17,7 @@ import "core:os"
 import "core:log"
 import "core:mem"
 import "core:time"
+import "core:sync"
 import "core:dynlib"
 import "core:thread"
 import "core:reflect"
@@ -43,6 +44,7 @@ Board_Thread_Data :: struct {
   global_should_quit: ^bool,
   max_iterations: int,
   step_time: time.Duration,
+  step_barrier: ^sync.Barrier,
   wd_thread_should_quit: ^b32,
   wd_thread: ^thread.Thread,
 }
@@ -281,6 +283,9 @@ board_thread_proc :: proc(rawdata: rawptr)
     dont_skip_spall := spall_it == 0
     start_tick := time.tick_now()
 
+    // coordinate steps between all stepwise simulation
+    sync.barrier_wait(data.step_barrier)
+
     if dont_skip_spall {
       spall._buffer_begin("Peripheral update")
     }
@@ -329,7 +334,7 @@ board_thread_proc :: proc(rawdata: rawptr)
 /* Launch simulation on the already initialized board `memory.board_api`
  * global_should_quit is readonly
  */
-launch_board :: proc(thread_data_backing: ^FW_Thread_Data, memory: ^peripherals.Memory, global_should_quit: ^bool, max_iterations: int, step_time: time.Duration) -> (board_thread: ^thread.Thread)
+launch_board :: proc(thread_data_backing: ^FW_Thread_Data, memory: ^peripherals.Memory, barrier: ^sync.Barrier, global_should_quit: ^bool, max_iterations: int, step_time: time.Duration) -> (board_thread: ^thread.Thread)
 {
   td := thread_data_backing
   td.wd = Write_Detect_Thread_Data {
@@ -342,6 +347,7 @@ launch_board :: proc(thread_data_backing: ^FW_Thread_Data, memory: ^peripherals.
     global_should_quit = global_should_quit,
     max_iterations = max_iterations,
     step_time = step_time,
+    step_barrier = barrier,
   }
 
   td.board.wd_thread_should_quit = &td.wd.should_quit
