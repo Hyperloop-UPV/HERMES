@@ -212,8 +212,7 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
 
   ITERATION_TIME :: 40*time.Microsecond
 
-  for spall_it := 0;; spall_it = (spall_it + 1) % 1024 {
-    dont_skip_spall := spall_it == 0
+  for {
     start_tick := time.tick_now()
 
     if data.should_quit {
@@ -233,10 +232,6 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
     }
 
     if pageCount > 0 {
-      if dont_skip_spall {
-        spall._buffer_begin("Peripheral handle page writes")
-      }
-
       for idx: uint = 0; idx < pageCount; idx += 1 {
         pageAddr: rawptr = memory.writeWatchRequestMem[idx]
         pageOffset := uintptr(pageAddr) - uintptr(memory.base)
@@ -244,10 +239,6 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
         pageIdx := u32(pageOffset) / u32(mem.PAGE_SIZE)
 
         memory.handlers[pageIdx](memory, data.simArray[pageIdx].this_ctx)
-      }
-
-      if dont_skip_spall {
-        spall._buffer_end() // "Peripheral handle page writes"
       }
     }
 
@@ -279,16 +270,11 @@ board_thread_proc :: proc(rawdata: rawptr)
   ITERATION_TIME :: 20*time.Microsecond
 
   it := 0
-  for spall_it := 0;; spall_it = (spall_it + 1) % 1024 {
-    dont_skip_spall := spall_it == 0
+  for {
     start_tick := time.tick_now()
 
     // coordinate steps between all stepwise simulation
     sync.barrier_wait(data.step_barrier)
-
-    if dont_skip_spall {
-      spall._buffer_begin("Peripheral update")
-    }
 
     for periph in memory.simArray {
       if periph.step != peripherals.Stub_step {
@@ -297,16 +283,7 @@ board_thread_proc :: proc(rawdata: rawptr)
       }
     }
 
-    if dont_skip_spall {
-      spall._buffer_end() // "Peripheral update"
-      spall._buffer_begin("Board iteration")
-    }
-
     memory.board_api.update()
-
-    if dont_skip_spall {
-      spall._buffer_end() // "Board iteration"
-    }
 
     it += 1
     if (data.max_iterations != 0) && (it > data.max_iterations) {

@@ -165,6 +165,18 @@ main :: proc()
     memories[board_idx] = create_board(board, channels, start_tick)
   }
 
+  log.infof("Total page count: %v", memories[0].pageCount * len(opt.board))
+  log.infof("Total page size: %v", memories[0].totalMem * len(opt.board))
+  log.infof("Peripheral count for each board: %v", mcu.PERIPHERAL_COUNT)
+  log.infof("Total used memory: %v Bytes",
+    (memories[0].arena.total_used + memories[0].totalMem) * len(opt.board),
+  )
+
+  spall._buffer_end() // "Startup"
+  when spall.PROFILING {
+    spall.buffer_flush(&spall.ctx, &spall.buffer)
+  }
+
   // TODO: This initialization probably should be in simulator_usim_threads.odin...
   for u, usim_idx in opt.usim {
     td := &usims[usim_idx]
@@ -201,15 +213,6 @@ main :: proc()
       delete(u.attached_memories)
     }
   }
-
-  log.infof("Total page count: %v", memories[0].pageCount * len(opt.board))
-  log.infof("Total page size: %v", memories[0].totalMem * len(opt.board))
-  log.infof("Peripheral count for each board: %v", mcu.PERIPHERAL_COUNT)
-  log.infof("Total used memory: %v Bytes",
-    (memories[0].arena.total_used + memories[0].totalMem) * len(opt.board),
-  )
-
-  spall._buffer_end() // "Startup"
 
   /* --------------------------------------------- */
 
