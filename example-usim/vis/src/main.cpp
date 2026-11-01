@@ -65,10 +65,9 @@ struct USim_Memory {
   ImGuiIO *imgui_io;
   ImGuiStyle *imgui_style;
 
-  ImVec4 clear_color;
-
   // ['A','K'] (both included)
   ScrollingBuffer scrolling_gpio_data['K' - 'A' + 1];
+  ScrollingBuffer scrolling_systick_data;
   float newest_time;
   float time_history;
   bool show_implot_style_editor;
@@ -137,8 +136,6 @@ bool Init_Window(USim_Memory *mem)
   //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
   //IM_ASSERT(font != nullptr);
 
-  mem->clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
   mem->time_history = 80.0f;
   mem->newest_time = (float)SDL_GetTicksNS() / 1000'000'000.0f;
 
@@ -153,6 +150,7 @@ bool Init_Window(USim_Memory *mem)
   // there is no gpio['I']
   mem->scrolling_gpio_data['J' - 'A'].Init();
   mem->scrolling_gpio_data['K' - 'A'].Init();
+  mem->scrolling_systick_data.Init(4096);
 
   mem->scrolling_gpio_data['A' - 'A'].AddPoint(mem->newest_time, 0);
   mem->scrolling_gpio_data['B' - 'A'].AddPoint(mem->newest_time, 0);
@@ -165,6 +163,7 @@ bool Init_Window(USim_Memory *mem)
   // there is no gpio['I']
   mem->scrolling_gpio_data['J' - 'A'].AddPoint(mem->newest_time, 0);
   mem->scrolling_gpio_data['K' - 'A'].AddPoint(mem->newest_time, 0);
+  mem->scrolling_systick_data.AddPoint(mem->newest_time, 0);
 
   mem->show_implot_style_editor = true;
 
@@ -188,8 +187,9 @@ DLLEXPORT bool USim_init(void *memory, USim_API *api, const char *board_name, ui
   }
 
   bool ok = api->subscribe_event(memory, Event_Kind_GPIO_Modified, usim_id);
+  ok = ok && api->subscribe_event(memory, Event_Kind_SysTick, usim_id);
   if(!ok) {
-    SDL_Log("Error: Could not subscribe to core simulator event");
+    SDL_Log("Error: Could not subscribe to core simulator events");
     return false;
   }
 
@@ -202,6 +202,51 @@ inline void plot_gpio_line(const char *title, ImPlotSpec *spec, ScrollingBuffer 
 {
   spec->Offset = buf->Offset;
   ImPlot::PlotLine(title, &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), *spec);
+}
+
+void Plot_GPIOGraph(USim_Memory *mem, float oldest)
+{
+  if(ImPlot::BeginPlot("##GPIO_Graph", ImVec2(-1, 20*ImGui::GetTextLineHeight()))) {
+    ImPlot::SetupAxes("time", "GPIO values");
+    ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
+    ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (double)0xFFFFU);
+
+    ImPlotSpec spec;
+    spec.Stride = 2 * sizeof(float);
+    spec.FillAlpha = 0.8f;
+
+    plot_gpio_line("GPIOA", &spec, &mem->scrolling_gpio_data['A' - 'A']);
+    plot_gpio_line("GPIOB", &spec, &mem->scrolling_gpio_data['B' - 'A']);
+    plot_gpio_line("GPIOC", &spec, &mem->scrolling_gpio_data['C' - 'A']);
+    plot_gpio_line("GPIOD", &spec, &mem->scrolling_gpio_data['D' - 'A']);
+    plot_gpio_line("GPIOE", &spec, &mem->scrolling_gpio_data['E' - 'A']);
+    plot_gpio_line("GPIOF", &spec, &mem->scrolling_gpio_data['F' - 'A']);
+    plot_gpio_line("GPIOG", &spec, &mem->scrolling_gpio_data['G' - 'A']);
+    plot_gpio_line("GPIOH", &spec, &mem->scrolling_gpio_data['H' - 'A']);
+    // there is no 'I'
+    plot_gpio_line("GPIOJ", &spec, &mem->scrolling_gpio_data['J' - 'A']);
+    plot_gpio_line("GPIOK", &spec, &mem->scrolling_gpio_data['K' - 'A']);
+
+    ImPlot::EndPlot();
+  }
+}
+
+void Plot_SysTickGraph(USim_Memory *mem, float oldest)
+{
+  if(ImPlot::BeginPlot("##SysTick_Graph", ImVec2(-1, 8*ImGui::GetTextLineHeight()))) {
+    ImPlot::SetupAxes("time", "SysTick");
+    ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
+    ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 1.1);
+
+    ImPlotSpec spec;
+    spec.Stride = 2 * sizeof(float);
+    spec.FillAlpha = 0.8f;
+    ScrollingBuffer *buf = &mem->scrolling_systick_data;
+    spec.Offset = buf->Offset;
+    ImPlot::PlotLine("Interrupt", &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), spec);
+
+    ImPlot::EndPlot();
+  }
 }
 
 DLLEXPORT bool USim_update(void *usim_rawmem)
@@ -235,66 +280,41 @@ sdlPollEvent:
   ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
 
-  if(mem->show_implot_style_editor) {
-    ImGui::Begin("Style Editor (ImPlot)", &mem->show_implot_style_editor);
-    ImPlot::ShowStyleEditor();
-    ImGui::End();
-  }
+  /* -------------------------------- */
 
-  {
-    static int counter = 0;
+  ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 
-    ImGui::Begin("hello, usim");
+  const ImGuiViewport *viewport = ImGui::GetMainViewport();
+  ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(viewport->WorkSize);
+  window_flags |= ImGuiWindowFlags_NoMove;
 
+  float oldest = mem->newest_time - mem->time_history;
+  if(ImGui::Begin("usim event gathering", 0, window_flags)) {
     ImGui::SliderFloat("History", &mem->time_history, 1.0f, 160.0f, "%.1f s");
-    ImGui::ColorEdit3("clear color", (float*)&mem->clear_color);
 
-    if(ImGui::Button("increment cnt")) {
-      counter++;
-    }
-    ImGui::SameLine();
-    ImGui::Text("counter = %d", counter);
+    Plot_GPIOGraph(mem, oldest);
+    Plot_SysTickGraph(mem, oldest);
 
-    float oldest = mem->newest_time - mem->time_history;
-    if(ImPlot::BeginPlot("##Scrolling", ImVec2(-1, 20*ImGui::GetTextLineHeight()))) {
-      ImPlot::SetupAxes("time", "GPIO values");
-      ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
-      ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (double)0xFFFFU);
-
-      ImPlotSpec spec;
-      spec.Stride = 2 * sizeof(float);
-      spec.FillAlpha = 0.8f;
-
-      plot_gpio_line("GPIOA", &spec, &mem->scrolling_gpio_data['A' - 'A']);
-      plot_gpio_line("GPIOB", &spec, &mem->scrolling_gpio_data['B' - 'A']);
-      plot_gpio_line("GPIOC", &spec, &mem->scrolling_gpio_data['C' - 'A']);
-      plot_gpio_line("GPIOD", &spec, &mem->scrolling_gpio_data['D' - 'A']);
-      plot_gpio_line("GPIOE", &spec, &mem->scrolling_gpio_data['E' - 'A']);
-      plot_gpio_line("GPIOF", &spec, &mem->scrolling_gpio_data['F' - 'A']);
-      plot_gpio_line("GPIOG", &spec, &mem->scrolling_gpio_data['G' - 'A']);
-      plot_gpio_line("GPIOH", &spec, &mem->scrolling_gpio_data['H' - 'A']);
-      // there is no 'I'
-      plot_gpio_line("GPIOJ", &spec, &mem->scrolling_gpio_data['J' - 'A']);
-      plot_gpio_line("GPIOK", &spec, &mem->scrolling_gpio_data['K' - 'A']);
-
-      ImPlot::EndPlot();
+    // TODO: Some menu or smt for this?
+    if(mem->show_implot_style_editor) {
+      ImGui::Begin("Style Editor (ImPlot)", &mem->show_implot_style_editor);
+      ImPlot::ShowStyleEditor();
+      ImGui::End();
     }
 
     ImGui::Text("App average %.3f ms/frame (%.1f FPS)",
       1000.0f / mem->imgui_io->Framerate, mem->imgui_io->Framerate
     );
-
-    ImGui::End();
   }
+  ImGui::End();
+
+  /* -------------------------------- */
 
   ImGui::Render();
   SDL_SetRenderScale(mem->renderer,
     mem->imgui_io->DisplayFramebufferScale.x,
     mem->imgui_io->DisplayFramebufferScale.y
-  );
-  SDL_SetRenderDrawColorFloat(mem->renderer,
-    mem->clear_color.x, mem->clear_color.y,
-    mem->clear_color.z, mem->clear_color.w
   );
   SDL_RenderClear(mem->renderer);
   ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), mem->renderer);
@@ -304,19 +324,28 @@ sdlPollEvent:
 
   USim_Event event;
   while(mem->api->poll_event(mem->api->channel, &event)) {
-    // NOTE: recieved event is incorrect right now
+    float cur_time = (float)event.instant / 1000'000'000.0f;
+    mem->newest_time = SDL_max(cur_time, mem->newest_time);
+
     switch(event.kind) {
       case Event_Kind_Quit: break;
       case Event_Kind_Count: break;
 
       case Event_Kind_GPIO_Modified: {
-        float cur_time = (float)event.instant / 1000'000'000.0f;
-        mem->newest_time = SDL_max(cur_time, mem->newest_time);
-
         mem->scrolling_gpio_data[event.as.gpio_mod.gpio_char - 'A'].AddPoint(
           cur_time, (float)event.as.gpio_mod.value
         );
-      }
+      } break;
+
+      case Event_Kind_SysTick: {
+        // Easy way to show when SysTick was called, just make a very thin spike
+        // +-1 us
+        float prev_instant = cur_time + 0.0000001f;
+        float next_instant = cur_time + 0.0000001f;
+        mem->scrolling_systick_data.AddPoint(prev_instant, 0);
+        mem->scrolling_systick_data.AddPoint(cur_time, 1);
+        mem->scrolling_systick_data.AddPoint(next_instant, 0);
+      } break;
     }
   }
 
