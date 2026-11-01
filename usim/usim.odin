@@ -39,18 +39,28 @@ Recv_Channel :: distinct rawptr
 Event_Kind :: enum u32 {
   /* when the simulator is done, it will enqueue a Quit event */
   Quit = 0,
-  GPIO_Modified = 1,
 
-  Count = 2,
+  GPIO_Modified = 1,
+  SysTick = 2,
+
+  Count = 3,
 }
 
-GPIO_Mod :: struct {
+GPIO_Mod_Event :: struct {
   gpio_char: u8,
   value: u32,
 }
 
+SysTick_Event :: struct {
+  /* True when the event was caused by a SysTick interrupt
+   * right now, the only event for SysTick
+   */
+  interrupt_called: bool,
+}
+
 Event_Info :: struct #raw_union {
-  gpio_mod: GPIO_Mod,
+  gpio_mod: GPIO_Mod_Event,
+  systick: SysTick_Event,
 }
 
 Event :: struct {

@@ -417,6 +417,10 @@ Memory :: struct {
 /* see Memory.subscibed_events */
 #assert(usim.MAX_USIMS <= 64)
 
+/*
+Prepares event with kind, instant and board_name then enqueues it
+into every subscriber's queue and calls event_watch callbacks
+*/
 enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Event_Kind)
 {
   kind := u32(event_kind)

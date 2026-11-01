@@ -15,7 +15,9 @@ package simulator_platform
  */
 
 import "core:os"
+import "core:fmt"
 import "core:log"
+import "core:c/libc"
 
 import win "core:sys/windows"
 
@@ -25,6 +27,7 @@ internal_signal_handler: proc "contextless"()
 @(private="file")
 signal_handler :: proc "system"(ctrl_type: win.DWORD) -> win.BOOL
 {
+  libc.printf("in windows signal handler\n")
   if (ctrl_type == win.CTRL_C_EVENT) || (ctrl_type == win.CTRL_BREAK_EVENT) || (ctrl_type == win.CTRL_CLOSE_EVENT) {
     if internal_signal_handler != nil {
       internal_signal_handler()
@@ -40,7 +43,10 @@ setup_signal_handler :: proc(handler: proc "contextless"())
 {
   internal_signal_handler = handler
 
-  win.SetConsoleCtrlHandler(signal_handler, win.TRUE)
+  if !win.SetConsoleCtrlHandler(signal_handler, win.TRUE) {
+    fmt.eprintfln("[win32] Could not set signal handler: %v", win.GetLastError())
+    os.exit(1)
+  }
 
   // Do we want to catch the following:
 	// - Asserts and panics;

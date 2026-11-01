@@ -66,6 +66,10 @@ USim_update :: proc "c"(usim_rawmem: rawptr) -> (end_early: bool)
           event.as.gpio_mod.value,
         )
       }
+
+      case .SysTick: {
+        fmt.println("SysTick interrupt got called")
+      }
     }
   }
 

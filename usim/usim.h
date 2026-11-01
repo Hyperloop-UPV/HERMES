@@ -16,16 +16,24 @@
 typedef enum USim_Event_Kind {
   Event_Kind_Quit = 0,
   Event_Kind_GPIO_Modified = 1,
-  Event_Kind_Count = 2,
+  Event_Kind_SysTick = 2,
+  Event_Kind_Count = 3,
 } USim_Event_Kind;
 
-typedef struct USim_GPIO_Mod {
+typedef struct USim_GPIO_Mod_Event {
   uint8_t gpio_char;
   uint32_t value;
-} USim_GPIO_Mod;
+} USim_GPIO_Mod_Event;
+
+typedef struct USim_SysTick_Event {
+  bool interrupt_called;
+} USim_SysTick_Event;
 
 typedef union USim_Event_Info {
-  USim_GPIO_Mod gpio_mod;
+  USim_GPIO_Mod_Event gpio_mod;
+  struct {
+    bool interrupt_called;
+  } systick;
 } USim_Event_Info;
 
 typedef struct USim_Event {

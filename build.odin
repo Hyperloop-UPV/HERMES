@@ -465,6 +465,21 @@ C_struct_from_odin_struct :: proc(f: ^os.File, t: reflect.Type_Info_Struct, know
 
 do_usim_codegen :: proc() -> bool
 {
+  write_struct :: proc(f: ^os.File, known_structs: []string, $T: typeid, name: string) {
+    prefix := "USim_"
+    name_with_prefix := fmt.tprintf("%s%s", prefix, name)
+
+    write_string(f, "typedef struct ")
+    write_string(f, name_with_prefix)
+    write_string(f, " {\n")
+    type_named := type_info_of(T).variant.(runtime.Type_Info_Named)
+    type := type_named.base.variant.(runtime.Type_Info_Struct)
+    C_struct_from_odin_struct(f, type, known_structs, prefix = prefix)
+    write_string(f, "} ")
+    write_string(f, name_with_prefix)
+    write_string(f, ";\n\n")
+  }
+
   os.make_directory("usim")
   output_lib := "usim/usim.h"
   f, err := os.open(output_lib, {.Write, .Trunc, .Create})
@@ -474,7 +489,7 @@ do_usim_codegen :: proc() -> bool
   known_structs := []string{
     "Event_Info",
     "Event",
-    "GPIO_Mod",
+    "GPIO_Mod_Event",
     "API",
     "Recv_Channel",
   }
@@ -511,11 +526,8 @@ do_usim_codegen :: proc() -> bool
   }
   write_string(f, "} USim_Event_Kind;\n\n")
 
-  write_string(f, "typedef struct USim_GPIO_Mod {\n")
-  gpio_mod_named := type_info_of(usim.GPIO_Mod).variant.(runtime.Type_Info_Named)
-  gpio_mod := gpio_mod_named.base.variant.(runtime.Type_Info_Struct)
-  C_struct_from_odin_struct(f, gpio_mod, known_structs, prefix = "USim_")
-  write_string(f, "} USim_GPIO_Mod;\n\n")
+  write_struct(f, known_structs, usim.GPIO_Mod_Event, "GPIO_Mod_Event")
+  write_struct(f, known_structs, usim.SysTick_Event, "SysTick_Event")
 
   write_string(f, "typedef union USim_Event_Info {\n")
   event_info_named := type_info_of(usim.Event_Info).variant.(runtime.Type_Info_Named)
@@ -523,19 +535,11 @@ do_usim_codegen :: proc() -> bool
   C_struct_from_odin_struct(f, event_info, known_structs, prefix = "USim_")
   write_string(f, "} USim_Event_Info;\n\n")
 
-  write_string(f, "typedef struct USim_Event {\n")
-  event_struct_named := type_info_of(usim.Event).variant.(runtime.Type_Info_Named)
-  event_struct := event_struct_named.base.variant.(runtime.Type_Info_Struct)
-  C_struct_from_odin_struct(f, event_struct, known_structs, prefix = "USim_")
-  write_string(f, "} USim_Event;\n\n")
+  write_struct(f, known_structs, usim.Event, "Event")
 
   write_string(f, "typedef void* USim_Recv;\n\n")
 
-  write_string(f, "typedef struct USim_API {\n")
-  api_struct_named := type_info_of(usim.API).variant.(runtime.Type_Info_Named)
-  api_struct := api_struct_named.base.variant.(runtime.Type_Info_Struct)
-  C_struct_from_odin_struct(f, api_struct, known_structs, prefix = "USim_")
-  write_string(f, "} USim_API;\n\n")
+  write_struct(f, known_structs, usim.API, "API")
 
   write_string(f, "#endif // USIM_H\n")
 

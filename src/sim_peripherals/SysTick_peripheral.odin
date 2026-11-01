@@ -17,6 +17,7 @@ import "core:time"
 import "core:sync"
 
 import mcu "mcu:stm32h723xx"
+import "../../usim"
 
 /* NOTE: This SysTick implementation works at 10 microsecond precision,
  *       As you can see by the value of CALIB
@@ -163,6 +164,10 @@ SysTick_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
         vector_table := cast([^]#type proc "c"())(vector_base)
 
         vector_table[mcu.SysTick_IRQn]()
+
+        event: usim.Event
+        event.as.systick.interrupt_called = true
+        enqueue_event(mem, &event, .SysTick)
       }
     }
   }
