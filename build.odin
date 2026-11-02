@@ -490,6 +490,8 @@ do_usim_codegen :: proc() -> bool
     "Event_Info",
     "Event",
     "GPIO_Mod_Event",
+    "SysTick_Event",
+    "NVIC_Event",
     "API",
     "Recv_Channel",
   }
@@ -529,7 +531,8 @@ do_usim_codegen :: proc() -> bool
     "\n#define USIM_API_VERSION \\\n" +
     "  USIM_API_VERSION_MAJOR \".\" \\\n" +
     "  USIM_API_VERSION_MINOR \".\" \\\n" +
-    "  USIM_API_VERSION_PATCH\n"
+    "  USIM_API_VERSION_PATCH\n" +
+    "\n",
   )
 
   write_string(f, "typedef enum USim_Event_Kind {\n")
@@ -541,6 +544,7 @@ do_usim_codegen :: proc() -> bool
 
   write_struct(f, known_structs, usim.GPIO_Mod_Event, "GPIO_Mod_Event")
   write_struct(f, known_structs, usim.SysTick_Event, "SysTick_Event")
+  write_struct(f, known_structs, usim.NVIC_Event, "NVIC_Event")
 
   write_string(f, "typedef union USim_Event_Info {\n")
   event_info_named := type_info_of(usim.Event_Info).variant.(runtime.Type_Info_Named)

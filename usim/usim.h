@@ -13,11 +13,20 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#define USIM_API_VERSION_MAJOR 0
+#define USIM_API_VERSION_MAJOR 0
+#define USIM_API_VERSION_MAJOR 0
+#define USIM_API_VERSION \
+  USIM_API_VERSION_MAJOR "." \
+  USIM_API_VERSION_MINOR "." \
+  USIM_API_VERSION_PATCH
+
 typedef enum USim_Event_Kind {
   Event_Kind_Quit = 0,
   Event_Kind_GPIO_Modified = 1,
   Event_Kind_SysTick = 2,
-  Event_Kind_Count = 3,
+  Event_Kind_NVIC = 3,
+  Event_Kind_Count = 4,
 } USim_Event_Kind;
 
 typedef struct USim_GPIO_Mod_Event {
@@ -29,11 +38,14 @@ typedef struct USim_SysTick_Event {
   bool interrupt_called;
 } USim_SysTick_Event;
 
+typedef struct USim_NVIC_Event {
+  uint8_t interrupt_idx;
+} USim_NVIC_Event;
+
 typedef union USim_Event_Info {
   USim_GPIO_Mod_Event gpio_mod;
-  struct {
-    bool interrupt_called;
-  } systick;
+  USim_SysTick_Event systick;
+  USim_NVIC_Event nvic;
 } USim_Event_Info;
 
 typedef struct USim_Event {
@@ -47,6 +59,7 @@ typedef struct USim_Event {
 typedef void* USim_Recv;
 
 typedef struct USim_API {
+  bool (*check_version)(const char* version);
   bool (*subscribe_event)(void *memory, USim_Event_Kind kind, uint64_t id);
   bool (*poll_event)(void *channel, USim_Event *event);
   bool (*wait_event)(void *channel, USim_Event *event);
@@ -54,6 +67,7 @@ typedef struct USim_API {
   void *channel;
   bool (*_init)(void *memory, USim_API *api, const char* board_name, uint64_t usim_id, void **usim_mem);
   bool (*_update)(void *usim_mem);
+  bool (*_step)(void *usim_mem, int64_t step_time);
   void (*_deinit)(void *usim_mem);
   void *_library;
 } USim_API;

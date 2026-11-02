@@ -94,7 +94,7 @@ Systick_Context :: struct {
 SysTick_handler :: proc(rawctx, this_rawctx: rawptr)
 {
   memory := cast(^Memory)rawctx
-  systick := cast(^mcu.SysTick)memory.SysTick_base
+  systick := memory.SysTick_base
   ctx := cast(^Systick_Context)this_rawctx
 
   if systick.CALIB != CALIB_VALUE {
@@ -117,7 +117,7 @@ SysTick_handler :: proc(rawctx, this_rawctx: rawptr)
 SysTick_setup :: proc(rawctx: rawptr) -> rawptr
 {
   memory := cast(^Memory)rawctx
-  systick := cast(^mcu.SysTick)memory.SysTick_base
+  systick := memory.SysTick_base
 
   systick.CALIB = CALIB_VALUE
 
@@ -130,7 +130,7 @@ SysTick_setup :: proc(rawctx: rawptr) -> rawptr
 SysTick_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
 {
   mem := cast(^Memory)rawctx
-  systick := cast(^mcu.SysTick)mem.SysTick_base
+  systick := mem.SysTick_base
   ctx := cast(^Systick_Context)this_rawctx
 
   if (systick.CTRL & CTRL_ENABLE_CounterEnabled) != 0 {

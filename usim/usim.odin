@@ -47,8 +47,9 @@ Event_Kind :: enum u32 {
 
   GPIO_Modified = 1,
   SysTick = 2,
+  NVIC = 3,
 
-  Count = 3,
+  Count = 4,
 }
 
 GPIO_Mod_Event :: struct {
@@ -63,9 +64,15 @@ SysTick_Event :: struct {
   interrupt_called: bool,
 }
 
+NVIC_Event :: struct {
+  /* Interrupt index of the interrupt that was called */
+  interrupt_idx: u8,
+}
+
 Event_Info :: struct #raw_union {
   gpio_mod: GPIO_Mod_Event,
   systick: SysTick_Event,
+  nvic: NVIC_Event,
 }
 
 Event :: struct {

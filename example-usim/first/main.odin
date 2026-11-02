@@ -38,8 +38,10 @@ USim_init :: proc "c"(memory: rawptr, api: ^usim.API, board_name: cstring, usim_
   context = usim_mem.odin_ctx
 
   ok := api.subscribe_event(memory, .GPIO_Modified, usim_id)
+  ok = ok && api.subscribe_event(memory, .SysTick, usim_id)
+  ok = ok && api.subscribe_event(memory, .NVIC, usim_id)
   if !ok {
-    fmt.eprintfln("Could not subscribe to core simulator event")
+    fmt.eprintfln("Could not subscribe to core simulator events")
     return false
   }
 
@@ -69,6 +71,12 @@ USim_update :: proc "c"(usim_rawmem: rawptr) -> (end_early: bool)
 
       case .SysTick: {
         fmt.println("SysTick interrupt got called")
+      }
+
+      case .NVIC: {
+        fmt.printfln("NVIC interrupt idx %u got called",
+          event.as.nvic.interrupt_idx,
+        )
       }
     }
   }
