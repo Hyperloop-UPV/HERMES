@@ -14,12 +14,71 @@ package peripherals
  *   Author: victor
  */
 
+import "core:os"
+import "core:fmt"
 import "core:time"
 import "core:dynlib"
 
 import mcu "mcu:stm32h723xx"
 
 // TODO: The rest of this peripheral, only the VTOR has been simulated for now.
+
+/*
+What has been simulated:
+ - CPUID
+ - VTOR
+
+What is missing:
+ - ICSR (works very similar to NVIC registers)
+ - AIRCR
+ - SCR
+ - CCR
+ - SHPR
+ - SHCSR
+ - CFSR
+ - HFSR
+ - DFSR
+ - MMFAR
+ - BFAR
+ - AFSR
+ - ID_PFR
+ - ID_DFR
+ - ID_AFR
+ - ID_MFR
+ - ID_ISAR
+ - CLIDR
+ - CTR
+ - CCSIDR
+ - CSSELR
+ - CPACR
+ - STIR
+ - MVFR0
+ - MVFR1
+ - MVFR2
+ - ICIALLU
+ - ICIMVAU
+ - DCIMVAC
+ - DCISW
+ - DCCMVAU
+ - DCCMVAC
+ - DCCISW
+ - ITCMCR
+ - DTCMCR
+ - AHBPCR
+ - CACR
+ - AHBSCR
+ - ABFSR
+*/
+
+/*
+ACTLR provides disable bits for the following processor functions:
+ - FPU exception outputs
+ - Dual-issue functionality
+ - Flushing of the trace output from the ITM and DWT
+ - Dynamic read allocate mode
+I don't think this is a register we need to simulate
+It is part of SCnSCB
+*/
 
 /* Address          Acronym      enum in stm32h723xx.h
  * 0x0000              -                 -
@@ -206,15 +265,32 @@ get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
 // TIM24_IRQn
 @(private="file") IRQn_Max :: 162
 
+@(private="file") CPUID_IMPLEMENTER :: 0x41 // Arm
+@(private="file") CPUID_VARIANT :: 0x0 // Revision 0
+@(private="file") CPUID_CONSTANT :: 0xF // Yes this is the real name
+@(private="file") CPUID_PARTNO :: 0xC27 // Cortex-M7
+@(private="file") CPUID_REVISION :: 0x0 // Revision 0
+@(private="file")
+CPUID_VALUE :: (CPUID_IMPLEMENTER << 24) | (CPUID_VARIANT << 20) | (CPUID_CONSTANT << 16) | (CPUID_PARTNO << 4) | (CPUID_REVISION << 0)
+
 SCB_handler :: proc(rawctx, this_rawctx: rawptr)
 {
+  memory := cast(^Memory)rawctx
+  scb := memory.SCB_base
 
+  if scb.CPUID != CPUID_VALUE {
+    fmt.eprintfln("[ERROR] Written to SCB CPUID, a ReadOnly register")
+    os.exit(1)
+  }
 }
 
 SCB_setup :: proc(rawctx: rawptr) -> rawptr
 {
   mem := cast(^Memory)rawctx
   scb := cast(^mcu.SCB)mem.SCB_base
+
+  // This will cause SCB_handler to be called (!)
+  scb.CPUID = CPUID_VALUE
 
   vector_table := new([IRQn_Max - IRQn_Min]rawptr, mem.arena_allocator)
   // NOTE: This won't underflow because IRQn_Min is a negative number
