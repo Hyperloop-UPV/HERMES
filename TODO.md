@@ -15,7 +15,8 @@
  - [x] Micro viewing simulator example
 
 ## micro emulating simulators
- - [ ] Make a slightly different interface for emulating simulators, for example for emulating an AFE (Analog Front End)
+ - [x] Make a slightly different interface for emulating simulators, for example for emulating an AFE (Analog Front End)
+ - [ ] Event system from usim to core simulator (other way round)
  - [ ] Micro emulating simulator example
 
 ## Peripherals
