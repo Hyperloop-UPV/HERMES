@@ -22,5 +22,5 @@
 ## Peripherals
  - [ ] Finish SCB peripheral (only VTOR register is usable)
  - [ ] Finish RCC peripheral (nothing has been simulated yet, only the file has been added)
- - [ ] Finish NVIC peripheral (not really sure if NVIC needs to handle writes or needs memory)
+ - [x] Finish NVIC peripheral
  - [ ] Finish GPIO peripheral (only basic digitaloutput has been simulated)
