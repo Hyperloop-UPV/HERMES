@@ -14,6 +14,11 @@ package usim
 
 import "core:dynlib"
 
+API_VERSION_MAJOR :: "0"
+API_VERSION_MINOR :: "1"
+API_VERSION_PATCH :: "0"
+API_VERSION :: API_VERSION_MAJOR + "." + API_VERSION_MINOR + "." + API_VERSION_PATCH
+
 /*
 maximum usims at the same time, limited by a couple of factors
 */
@@ -111,6 +116,17 @@ Deinit_Proc :: #type proc "c"(usim_mem: rawptr)
 /* WARNING: Unless advised to do otherwise, only call the following procedures from the main thread of the usim */
 
 /*
+Checks the usim api version is the same as the one used in the core simulator.
+
+Arguments:
+ - `version`: C string to be filled with `USIM_API_VERSION` in C or
+              `usim.API_VERSION` in odin
+Returns:
+ - If the version in the core simulator was the same
+*/
+Check_Version_Proc :: #type proc "c"(version: cstring) -> bool
+
+/*
 Procedure to call in `Init_Proc` to subscribe to an event kind
 
 Arguments:
@@ -173,6 +189,7 @@ Add_Watch_Event_Proc :: #type proc "c"( \
 API :: struct {
   /* api from core sim to usim */
 
+  check_version: Check_Version_Proc,
   subscribe_event: Subscribe_Event_Proc,
   poll_event: Poll_Event_Proc,
   wait_event: Wait_Event_Proc,

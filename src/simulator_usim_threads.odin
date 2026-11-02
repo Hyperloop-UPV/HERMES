@@ -61,6 +61,11 @@ load_usim_api :: proc(dllpath: string) -> usim.API
 
 /* --------------------------------------------- */
 
+USim_check_version :: proc "c"(version: cstring) -> bool
+{
+  return string(version) == usim.API_VERSION
+}
+
 USim_subscribe_event :: proc "c"(rawmem: rawptr, kind: usim.Event_Kind, id: usim.Id) -> bool
 {
   memory := cast(^peripherals.Memory)rawmem
@@ -120,6 +125,7 @@ usim_thread_proc :: proc(rawdata: rawptr)
   data := cast(^USim_Thread_Data)rawdata
 
   data.usim_api = load_usim_api(data.usim_dll)
+  data.usim_api.check_version = USim_check_version
   data.usim_api.subscribe_event = USim_subscribe_event
   data.usim_api.poll_event = USim_poll_event
   data.usim_api.wait_event = USim_wait_event

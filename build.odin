@@ -519,6 +519,19 @@ do_usim_codegen :: proc() -> bool
     "#include <stdbool.h>\n\n",
   )
 
+  write_string(f, "#define USIM_API_VERSION_MAJOR ")
+  write_string(f, usim.API_VERSION_MAJOR)
+  write_string(f, "\n#define USIM_API_VERSION_MAJOR ")
+  write_string(f, usim.API_VERSION_MAJOR)
+  write_string(f, "\n#define USIM_API_VERSION_MAJOR ")
+  write_string(f, usim.API_VERSION_MAJOR)
+  write_string(f,
+    "\n#define USIM_API_VERSION \\\n" +
+    "  USIM_API_VERSION_MAJOR \".\" \\\n" +
+    "  USIM_API_VERSION_MINOR \".\" \\\n" +
+    "  USIM_API_VERSION_PATCH\n"
+  )
+
   write_string(f, "typedef enum USim_Event_Kind {\n")
   for kind in reflect.enum_fields_zipped(usim.Event_Kind) {
     line := fmt.tprintfln("  %s%s = %v,", "Event_Kind_", kind.name, i64(kind.value))
