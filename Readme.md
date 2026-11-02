@@ -18,6 +18,8 @@ example:
 sim --cfg cfg.json --max-iterations 1000_000
 ```
 
+An example json config can be found in `cfg.json` and its schema in `https://raw.githubusercontent.com/Hyperloop-UPV/super-simulador/refs/heads/main/misc/sim-cfg.schema.json`
+
 ### Building
 
 ```

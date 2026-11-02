@@ -5,7 +5,7 @@
  - [ ] `__DSB()` (data synchronization barrier) stops simulated board until a full iteration of write detection in simulator happens
 
  - [ ] Command line: decide on what to do to emulate cfg.json through command line parsing. See `cmdline.odin`
- - [ ] Global arena for core simulator, since most allocations are a one time thing
+ - [x] Global arena for core simulator, since most allocations are a one time thing
  - [ ] Handle Ctrl+C to join all active threads
 
 ## micro viewing simulators (simulators that might log data, etc.)

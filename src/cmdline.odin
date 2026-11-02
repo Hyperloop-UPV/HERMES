@@ -40,12 +40,14 @@ Sim_Options_SemiParsed :: struct {
 
 USim_Cfg_Options :: struct {
   dll: string,
+  is_stepwise: bool,
   attached_boards: []cstring,
 }
 
 Sim_Options :: struct {
   board: []string,
   usim: []USim_Cfg_Options,
+  stepwise_usim_count: int,
   max_iterations: int,
   max_time: time.Duration,
 }
@@ -160,6 +162,10 @@ parse_cfg_file :: proc(file: string, opt: ^Sim_Options)
       cfg.dll = fmt.aprintf("%s." + dynlib.LIBRARY_FILE_EXTENSION,
         parse_json_object_field(file, "dll", "usims array element", obj, json.String),
       )
+
+      cfg.is_stepwise = obj["is_stepwise"].(json.Boolean)
+      opt.stepwise_usim_count += int(cfg.is_stepwise)
+
       attached := parse_json_object_field(file,
         "attached_boards", "usims array element",
         obj, json.Array,

@@ -148,15 +148,15 @@ main :: proc()
     }
     destroy_channels(channels)
   }
-  usims := make([]USim_Thread_Data, len(opt.usim), arena_allocator)
+  usim_backing := make([]USim_Thread_Data, len(opt.usim), arena_allocator)
   usim_threads = make([]^thread.Thread, len(opt.usim), arena_allocator)
 
   fw_thread_data := make([]FW_Thread_Data, len(opt.board), arena_allocator)
   fw_threads = make([]^thread.Thread, len(opt.board), arena_allocator)
 
   stepwise_barrier: sync.Barrier
-  // TODO: When stepwise usims are done, this must be len(fw_threads) + opt.stepwise_usim_count
-  sync.barrier_init(&stepwise_barrier, len(fw_threads))
+  sync.barrier_init(&stepwise_barrier, len(fw_threads) + opt.stepwise_usim_count)
+  step_time := 10 * time.Microsecond
 
   /* --------------------------------------------- */
 
@@ -177,46 +177,25 @@ main :: proc()
     spall.buffer_flush(&spall.ctx, &spall.buffer)
   }
 
-  // TODO: This initialization probably should be in simulator_usim_threads.odin...
-  for u, usim_idx in opt.usim {
-    td := &usims[usim_idx]
-    td^ = {
-      board_names = u.attached_boards,
-      usim_dll = u.dll,
-      global_should_quit = &global_should_quit,
-      usim_id = usim.Id(usim_idx),
-    }
-    td.channel = chan.as_recv(channels[usim_idx]).impl
+  /* --------------------------------------------- */
 
-    td.attached_memories = make([]^peripherals.Memory, len(u.attached_boards))
-    for attached, mem_idx in u.attached_boards {
-      board_name := string(attached)
-      found := false
-      for board, board_idx in opt.board {
-        if os.short_stem(board) == board_name {
-          td.attached_memories[mem_idx] = memories[board_idx]
-          found = true
-        }
-      }
-
-      if !found {
-        log.errorf("board %s requested by usim %s was not found in board array", attached, u.dll)
-        os.exit(1)
-      }
-    }
-
-    usim_threads[usim_idx] = launch_usim(td)
+  for usim_idx := 0; usim_idx < len(opt.usim); usim_idx += 1 {
+    td := &usim_backing[usim_idx]
+    usim_threads[usim_idx] = launch_usim(
+      td, &opt, &global_should_quit, usim_idx,
+      channels[usim_idx], memories,
+      step_time, &stepwise_barrier,
+    )
   }
 
   defer {
-    for u in usims {
+    for u in usim_backing {
       delete(u.attached_memories)
     }
   }
 
   /* --------------------------------------------- */
 
-  step_time := 10 * time.Microsecond
   for mem, idx in memories {
     fw_threads[idx] = launch_board(
       &fw_thread_data[idx],

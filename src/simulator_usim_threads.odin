@@ -17,6 +17,7 @@ import "core:os"
 import "core:log"
 import "core:mem"
 import "core:time"
+import "core:sync"
 import "core:dynlib"
 import "core:thread"
 import "core:sync/chan"
@@ -31,6 +32,13 @@ USim_Thread_Data :: struct {
   usim_dll: string,
   usim_api: usim.API,
   global_should_quit: ^bool,
+
+  is_stepwise: bool,
+
+  /* `step_time` and `step_barrier` are only used for stepwise usims */
+  step_time: time.Duration,
+  /* `step_time` and `step_barrier` are only used for stepwise usims */
+  step_barrier: ^sync.Barrier,
   /* we're using Raw_Chan instead of Chan(usim.Event, .Recv)
    * because we're sending it to C api
    */
@@ -40,7 +48,7 @@ USim_Thread_Data :: struct {
 
 /* --------------------------------------------- */
 
-load_usim_api :: proc(dllpath: string) -> usim.API
+load_usim_api :: proc(dllpath: string, is_stepwise: bool) -> usim.API
 {
   usim_api: usim.API
   did_load: bool
@@ -52,7 +60,11 @@ load_usim_api :: proc(dllpath: string) -> usim.API
   }
 
   load_symbol_or_err(usim_api._library, dllpath, "USim_init", cast(^rawptr)&usim_api._init)
-  load_symbol_or_err(usim_api._library, dllpath, "USim_update", cast(^rawptr)&usim_api._update)
+  if is_stepwise {
+    load_symbol_or_err(usim_api._library, dllpath, "USim_step", cast(^rawptr)&usim_api._step)
+  } else {
+    load_symbol_or_err(usim_api._library, dllpath, "USim_update", cast(^rawptr)&usim_api._update)
+  }
   load_symbol_or_err(usim_api._library, dllpath, "USim_deinit", cast(^rawptr)&usim_api._deinit)
 
   log.infof("loaded symbols correctly from %s", dllpath)
@@ -124,7 +136,7 @@ usim_thread_proc :: proc(rawdata: rawptr)
 {
   data := cast(^USim_Thread_Data)rawdata
 
-  data.usim_api = load_usim_api(data.usim_dll)
+  data.usim_api = load_usim_api(data.usim_dll, data.is_stepwise)
   data.usim_api.check_version = USim_check_version
   data.usim_api.subscribe_event = USim_subscribe_event
   data.usim_api.poll_event = USim_poll_event
@@ -148,9 +160,18 @@ usim_thread_proc :: proc(rawdata: rawptr)
   }
 
   quit: bool
-  for !quit && !(data.global_should_quit^) {
-    quit = data.usim_api._update(ctx)
-    // sleep is expected to be done in update() callback
+  if data.is_stepwise {
+    for !quit && !(data.global_should_quit^) {
+      sync.barrier_wait(data.step_barrier)
+      quit = data.usim_api._step(ctx, i64(data.step_time))
+      // there is no real need to sleep in the step() callback
+      // due to the barrier already forcing a wait, but it can be done
+    }
+  } else {
+    for !quit && !(data.global_should_quit^) {
+      quit = data.usim_api._update(ctx)
+      // sleep is expected to be done in update() callback
+    }
   }
   data.usim_api._deinit(ctx)
 
@@ -160,8 +181,38 @@ usim_thread_proc :: proc(rawdata: rawptr)
 
 /* --------------------------------------------- */
 
-launch_usim :: proc(backing: ^USim_Thread_Data) -> ^thread.Thread
+launch_usim :: proc(backing: ^USim_Thread_Data, opt: ^Sim_Options, global_should_quit: ^bool, idx: int, channel: chan.Chan(usim.Event, .Both), memories: []^peripherals.Memory, step_time: time.Duration, step_barrier: ^sync.Barrier) -> ^thread.Thread
 {
+  u := &opt.usim[idx]
+
+  backing.board_names = u.attached_boards
+  backing.usim_dll = u.dll
+  backing.global_should_quit = global_should_quit
+  backing.usim_id = usim.Id(idx)
+  backing.channel = chan.as_recv(channel).impl
+
+  backing.is_stepwise = u.is_stepwise
+  backing.step_time = step_time
+  backing.step_barrier = step_barrier
+
+  backing.attached_memories = make([]^peripherals.Memory, len(u.attached_boards))
+
+  for attached, mem_idx in u.attached_boards {
+    board_name := string(attached)
+    found := false
+    for board, board_idx in opt.board {
+      if os.short_stem(board) == board_name {
+        backing.attached_memories[mem_idx] = memories[board_idx]
+        found = true
+      }
+    }
+
+    if !found {
+      log.errorf("board %s requested by usim %s was not found in board array", attached, u.dll)
+      os.exit(1)
+    }
+  }
+
   usim_thread := thread.create_and_start_with_data(
     backing,
     usim_thread_proc,

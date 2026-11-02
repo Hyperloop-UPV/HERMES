@@ -8,6 +8,7 @@
   "usims": [
     {
       "dll": "example-usim/vis/bin/usim-vis",
+      "is_stepwise": false,
       "attached_boards": [
         "test"
       ]

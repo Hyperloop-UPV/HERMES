@@ -17,6 +17,10 @@
             "type": "string",
             "description": "usim dll to load, the dll extension will be appended when parsing this json"
           },
+          "is_stepwise": {
+            "type": "boolean",
+            "description": "specify if the usim is stepwise or real time, if true, core sim will try to find `USim_step` instead of `USim_update`"
+          },
           "attached_boards": {
             "type": "array",
             "items": { "type": "string" },

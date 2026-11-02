@@ -95,7 +95,7 @@ If this returns false, it won't be called again for any other boards
 Init_Proc :: #type proc "c"(memory: rawptr, api: ^API, board_name: cstring, usim_id: Id, usim_mem: ^rawptr) -> bool
 
 /*
-Procedure that will be called in a loop until `sim_is_done` is true.
+Procedure that will be called in a loop until `event.kind == .Quit` is true.
 
 Arguments:
  - `usim_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
@@ -105,7 +105,20 @@ Returns:
 Update_Proc :: #type proc "c"(usim_mem: rawptr) -> (end_early: bool)
 
 /*
-Procedure that will be called after the call to `Update_Proc` with `sim_is_done` == true or after the call to `Update_Proc` with `end_early` == true
+Procedure that will be called in a loop until `event.kind == .Quit` is true.
+
+Be aware that steps are significantly slower since they require a synchronization of all steps in the simulator, so avoid this unless you know what you're doing.
+
+Arguments:
+ - `usim_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
+ - `step_time`: the number of nanoseconds to step
+Returns:
+ - `end_early`: if end_early is true, `Update_Proc` will stop being called and `Deinit_Proc` will be called once
+*/
+Step_Proc :: #type proc "c"(usim_mem: rawptr, step_time: i64) -> (end_early: bool)
+
+/*
+Procedure that will be called after the Quit event is given or after the call to `Update_Proc` with `end_early` == true
 
 Arguments:
  - `usim_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
@@ -203,10 +216,18 @@ API :: struct {
 
   /* api from usim to core sim (taken from dll) */
 
+  /*
+  Either USim_update or USim_step are expected from the dll.
+  You may have both but only one will be used at a time depending on
+  the configuration in the given cfg.json
+  */
+
   /* USim_init is expected to be found */
   _init:  Init_Proc,
   /* USim_update is expected to be found */
   _update: Update_Proc,
+  /* USim_step is expected to be found */
+  _step: Step_Proc,
   /* USim_deinit is expected to be found */
   _deinit: Deinit_Proc,
 
