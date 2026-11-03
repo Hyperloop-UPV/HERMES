@@ -29,7 +29,7 @@ What has been simulated:
  - VTOR
 
 What is missing:
- - ICSR (works very similar to NVIC registers)
+ - ICSR Interrupt calls
  - AIRCR
  - SCR
  - CCR
@@ -100,6 +100,7 @@ It is part of SCnSCB
 
 @(private="file") Reset_IRQn :: -15
 
+@(private="file")
 get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
 {
   get_symbol :: dynlib.symbol_address
@@ -273,39 +274,148 @@ get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
 @(private="file")
 CPUID_VALUE :: (CPUID_IMPLEMENTER << 24) | (CPUID_VARIANT << 20) | (CPUID_CONSTANT << 16) | (CPUID_PARTNO << 4) | (CPUID_REVISION << 0)
 
+@(private="file") ICSR_NMIPENDSET_Offset :: 31
+@(private="file") ICSR_PENDSVSET_Offset :: 28
+@(private="file") ICSR_PENDSVCLR_Offset :: 27
+@(private="file") ICSR_PENDSTSET_Offset :: 26
+@(private="file") ICSR_PENDSTCLR_Offset :: 25
+// no real name for this bit just 'Reserved for Debug use', read only
+@(private="file") ICSR_ZeroWhenNotInDebug_Offset :: 23
+// read only
+@(private="file") ICSR_ISRPENDING_Offset :: 22
+// bits [20:12], read only
+@(private="file") ICSR_VECTPENDING_Offset :: 12
+// read only
+@(private="file") ICSR_RETTOBASE_Offset :: 11
+// bits [8:0], read only
+@(private="file") ICSR_VECTACTIVE_Offset :: 0
+
+@(private="file")
+SCB_Context :: struct {
+  prev_ICSR: u32,
+}
+
+handle_ICSR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
+{
+  ICSR_ZeroNotInDbg :: 0 << ICSR_ZeroWhenNotInDebug_Offset
+
+  if ((scb.ICSR & (1 << ICSR_PENDSVSET_Offset)) != 0) &&
+     ((scb.ICSR & (1 << ICSR_PENDSVCLR_Offset)) != 0)
+  {
+    fmt.eprintln(
+      "[ERROR] Undefined behaviour when setting both\n" +
+      "        PENDSVSET (bit 28)\n" +
+      "    and PENDSVCLR (bit 27)\n" +
+      "        bits to 1",
+    )
+    os.exit(1)
+  }
+
+  if ((scb.ICSR & (1 << ICSR_PENDSTSET_Offset)) != 0) &&
+     ((scb.ICSR & (1 << ICSR_PENDSTCLR_Offset)) != 0)
+  {
+    fmt.eprintln(
+      "[ERROR] Undefined behaviour when setting both\n" +
+      "        PENDSTSET (bit 26)\n" +
+      "    and PENDSTCLR (bit 25)\n" +
+      "        bits to 1",
+    )
+    os.exit(1)
+  }
+
+  if ((scb.ICSR & (1 << ICSR_ZeroWhenNotInDebug_Offset)) != ICSR_ZeroNotInDbg) {
+    fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
+      "bit 23", "a ReadOnly bit",
+    )
+    os.exit(1)
+  }
+
+  if ((scb.ICSR & (1 << ICSR_ISRPENDING_Offset)) !=
+      (ctx.prev_ICSR & (1 << ICSR_ISRPENDING_Offset)))
+  {
+    fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
+      "bit 22", "a ReadOnly bit",
+    )
+    os.exit(1)
+  }
+
+  if ((scb.ICSR & (1 << ICSR_VECTPENDING_Offset)) !=
+      (ctx.prev_ICSR & (1 << ICSR_VECTPENDING_Offset)))
+  {
+    fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
+      "bits [20:12]", "ReadOnly bits",
+    )
+    os.exit(1)
+  }
+
+  if ((scb.ICSR & (1 << ICSR_RETTOBASE_Offset)) !=
+      (ctx.prev_ICSR & (1 << ICSR_RETTOBASE_Offset)))
+  {
+    fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
+      "bit 11", "a ReadOnly bit",
+    )
+    os.exit(1)
+  }
+
+  if ((scb.ICSR & (1 << ICSR_VECTACTIVE_Offset)) !=
+      (ctx.prev_ICSR & (1 << ICSR_VECTACTIVE_Offset)))
+  {
+    fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
+      "bits [8:0]", "ReadOnly bits",
+    )
+    os.exit(1)
+  }
+}
+
 SCB_handler :: proc(rawctx, this_rawctx: rawptr)
 {
   memory := cast(^Memory)rawctx
   scb := memory.SCB_base
+  ctx := cast(^SCB_Context)this_rawctx
+  // keep a local copy
+  scb_current := scb^
 
-  if scb.CPUID != CPUID_VALUE {
-    fmt.eprintfln("[ERROR] Written to SCB CPUID, a ReadOnly register")
+  if scb_current.CPUID != CPUID_VALUE {
+    fmt.eprintln("[ERROR] Written to SCB CPUID, a ReadOnly register")
     os.exit(1)
+  }
+
+  if scb_current.ICSR != ctx.prev_ICSR {
+    handle_ICSR(&scb_current, ctx)
+    ctx.prev_ICSR = scb.ICSR
   }
 }
 
 SCB_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  mem := cast(^Memory)rawctx
-  scb := cast(^mcu.SCB)mem.SCB_base
+  memory := cast(^Memory)rawctx
+  scb := cast(^mcu.SCB)memory.SCB_base
+
+  ctx := new(SCB_Context, memory.arena_allocator)
 
   // This will cause SCB_handler to be called (!)
   scb.CPUID = CPUID_VALUE
+  ctx.prev_ICSR = 0
 
-  vector_table := new([IRQn_Max - IRQn_Min]rawptr, mem.arena_allocator)
+  vector_table := new([IRQn_Max - IRQn_Min]rawptr, memory.arena_allocator)
   // NOTE: This won't underflow because IRQn_Min is a negative number
   #assert(IRQn_Min < 0)
   vector_table_base := cast([^]rawptr)uintptr(
     i64(uintptr(&vector_table[0])) - i64(IRQn_Min * size_of(rawptr)),
   )
-  scb.VTOR = u32(uintptr(&vector_table_base[0]) - uintptr(mem.arena_base))
+  scb.VTOR = u32(uintptr(&vector_table_base[0]) - uintptr(memory.arena_base))
 
-  get_NVIC_interrupts_from_dynlib(mem, vector_table_base)
+  get_NVIC_interrupts_from_dynlib(memory, vector_table_base)
 
-  return nil
+  return ctx
 }
 
 SCB_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
 {
+  memory := cast(^Memory)rawctx
+  scb := memory.SCB_base
 
+  if (scb.ICSR & (1 << ICSR_NMIPENDSET_Offset)) != 0 {
+    // TODO: Call NMI exception handler. TODO: move to _handler()
+  }
 }

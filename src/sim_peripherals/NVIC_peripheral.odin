@@ -53,7 +53,10 @@ NVIC_handler :: proc(rawctx, this_rawctx: rawptr)
   ctx := cast(^NVIC_Context)this_rawctx
 
   if nvic.ICER != ctx.prev_ICER {
-    next_ISER := nvic.ISER & ~(nvic.ICER)
+    // any bits not set in ISER won't have any effect when written to in ICER
+    clear_bits := (nvic.ISER & nvic.ICER)
+    // XOR since we want any new ICER bits to clear ISER bits
+    next_ISER := nvic.ISER ~ clear_bits
     next_ICER := next_ISER
 
     nvic.ISER = next_ISER
@@ -69,7 +72,10 @@ NVIC_handler :: proc(rawctx, this_rawctx: rawptr)
   }
 
   if nvic.ICPR != ctx.prev_ICPR {
-    next_ISPR := nvic.ISPR & ~(nvic.ICPR)
+    // any bits not set in ISPR won't have any effect when written to in ICPR
+    clear_bits := (nvic.ISPR & nvic.ICPR)
+    // XOR since we want any new ICPR bits to clear ISPR bits
+    next_ISPR := nvic.ISPR ~ clear_bits
     next_ICPR := next_ISPR
 
     nvic.ISPR = next_ISPR
