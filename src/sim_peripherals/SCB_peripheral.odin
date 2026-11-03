@@ -27,12 +27,12 @@ import mcu "mcu:stm32h723xx"
 What has been simulated:
  - CPUID
  - VTOR
+ - SCR (will be used elsewhere, no simulation needed here)
+ - CCR (only checks for writes in readonly fields)
 
 What is missing:
  - ICSR Interrupt calls
- - AIRCR
- - SCR
- - CCR
+ - AIRCR Software reset
  - SHPR
  - SHCSR
  - CFSR
@@ -309,12 +309,38 @@ CPUID_VALUE :: (CPUID_IMPLEMENTER << 24) | (CPUID_VARIANT << 20) | (CPUID_CONSTA
 // A write of 1 to this bit is invalid
 @(private="file") AIRCR_VECTRESET_Invalid :: 1 << 0
 
+// SCR bits
+
+@(private="file") SCR_SEVONPEND_Offset :: 4
+@(private="file") SCR_DEEPSLEEP_Offset :: 2
+@(private="file") SCR_SLEEPONEXIT_Offset :: 1
+
+// CCR bits
+
+@(private="file") CCR_BP_Offset :: 18
+@(private="file") CCR_BP :: 1 << 18 // branch prediction is always on
+// enable/disable instruction cache
+@(private="file") CCR_IC_Offset :: 17
+// enable/disable data cache
+@(private="file") CCR_DC_Offset :: 16
+@(private="file") CCR_STKALIGN_Offset :: 9
+@(private="file") CCR_STKALIGN :: 1 << 9 // always reads as 1
+@(private="file") CCR_BFHFNMIGN_Offset :: 8
+// 0 -> (0/0 equ 0); 1 -> (sdiv/udiv causes trap when div 0)
+@(private="file") CCR_DIV_0_TRP_Offset :: 4
+// dont trap/trap when unaligned access to word
+@(private="file") CCR_UNALIGN_TRP_Offset :: 3
+// disables/enables unprivilaged access to STIR
+@(private="file") CCR_USERSETMPEND_Offset :: 1
+@(private="file") CCR_NONBASETHRDENA_Offset :: 0
+
 @(private="file")
 SCB_Context :: struct {
   prev_ICSR: u32,
   prev_AIRCR: u32,
 }
 
+@(private="file")
 handle_ICSR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
 {
   ICSR_ZeroNotInDbg :: 0 << ICSR_ZeroWhenNotInDebug_Offset
@@ -387,6 +413,7 @@ handle_ICSR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
   }
 }
 
+@(private="file")
 handle_AIRCR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
 {
   if (scb.AIRCR & (0xFF << AIRCR_VECTKEY_Offset)) != AIRCR_VECTKEY {
@@ -405,6 +432,20 @@ handle_AIRCR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
 
   if (scb.AIRCR & (3 << 0)) != 0 {
     fmt.eprintln("[ERROR] Written 1 to SCB AIRCR VECTCLRACTIVE or VECTRESET, which should only be 0")
+    os.exit(1)
+  }
+}
+
+@(private="file")
+handle_CCR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
+{
+  if (scb.CCR & (1 << CCR_BP_Offset)) != CCR_BP {
+    fmt.eprintln("[ERROR] Written to SCB CCR BP, a ReadOnly bit")
+    os.exit(1)
+  }
+
+  if (scb.CCR & (1 << CCR_STKALIGN_Offset)) != CCR_STKALIGN {
+    fmt.eprintln("[ERROR] Written to SCB CCR STKALIGN, a ReadOnly bit")
     os.exit(1)
   }
 }
@@ -439,10 +480,11 @@ SCB_setup :: proc(rawctx: rawptr) -> rawptr
   scb := cast(^mcu.SCB)memory.SCB_base
 
   ctx := new(SCB_Context, memory.arena_allocator)
-
-  // This will cause SCB_handler to be called (!)
-  scb.CPUID = CPUID_VALUE
   ctx.prev_ICSR = 0
+  ctx.prev_AIRCR = 0
+
+  scb.CPUID = CPUID_VALUE
+  scb.CCR = CCR_BP | CCR_STKALIGN
 
   vector_table := new([IRQn_Max - IRQn_Min]rawptr, memory.arena_allocator)
   // NOTE: This won't underflow because IRQn_Min is a negative number
