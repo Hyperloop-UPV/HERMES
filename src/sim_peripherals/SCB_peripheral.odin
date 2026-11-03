@@ -266,6 +266,8 @@ get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
 // TIM24_IRQn
 @(private="file") IRQn_Max :: 162
 
+// CPUID bits
+
 @(private="file") CPUID_IMPLEMENTER :: 0x41 // Arm
 @(private="file") CPUID_VARIANT :: 0x0 // Revision 0
 @(private="file") CPUID_CONSTANT :: 0xF // Yes this is the real name
@@ -273,6 +275,8 @@ get_NVIC_interrupts_from_dynlib :: proc(mem: ^Memory, vector_table: [^]rawptr)
 @(private="file") CPUID_REVISION :: 0x0 // Revision 0
 @(private="file")
 CPUID_VALUE :: (CPUID_IMPLEMENTER << 24) | (CPUID_VARIANT << 20) | (CPUID_CONSTANT << 16) | (CPUID_PARTNO << 4) | (CPUID_REVISION << 0)
+
+// ICSR bits
 
 @(private="file") ICSR_NMIPENDSET_Offset :: 31
 @(private="file") ICSR_PENDSVSET_Offset :: 28
@@ -290,9 +294,25 @@ CPUID_VALUE :: (CPUID_IMPLEMENTER << 24) | (CPUID_VARIANT << 20) | (CPUID_CONSTA
 // bits [8:0], read only
 @(private="file") ICSR_VECTACTIVE_Offset :: 0
 
+// AIRCR bits
+
+@(private="file") AIRCR_VECTKEY_Offset :: 16
+@(private="file") AIRCR_VECTKEYSTAT :: 0xFA05 << AIRCR_VECTKEY_Offset
+@(private="file") AIRCR_VECTKEY :: 0x05FA << AIRCR_VECTKEY_Offset
+@(private="file") AIRCR_ENDIANNESS_Offset :: 15
+@(private="file") AIRCR_ENDIANNESS :: 0 << AIRCR_ENDIANNESS_Offset // little endian
+@(private="file") AIRCR_PRIGROUP_Offset :: 8
+// Offset for SYSRESETREQ bit in AIRCR, which causes a software reset
+@(private="file") AIRCR_SYSRESETREQ_Offset :: 2
+// A write of 1 to this bit is invalid
+@(private="file") AIRCR_VECTCLRACTIVE_Invalid :: 1 << 1
+// A write of 1 to this bit is invalid
+@(private="file") AIRCR_VECTRESET_Invalid :: 1 << 0
+
 @(private="file")
 SCB_Context :: struct {
   prev_ICSR: u32,
+  prev_AIRCR: u32,
 }
 
 handle_ICSR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
@@ -339,8 +359,8 @@ handle_ICSR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
     os.exit(1)
   }
 
-  if ((scb.ICSR & (1 << ICSR_VECTPENDING_Offset)) !=
-      (ctx.prev_ICSR & (1 << ICSR_VECTPENDING_Offset)))
+  if ((scb.ICSR & (0xF << ICSR_VECTPENDING_Offset)) !=
+      (ctx.prev_ICSR & (0xF << ICSR_VECTPENDING_Offset)))
   {
     fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
       "bits [20:12]", "ReadOnly bits",
@@ -357,12 +377,34 @@ handle_ICSR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
     os.exit(1)
   }
 
-  if ((scb.ICSR & (1 << ICSR_VECTACTIVE_Offset)) !=
-      (ctx.prev_ICSR & (1 << ICSR_VECTACTIVE_Offset)))
+  if ((scb.ICSR & (0xF << ICSR_VECTACTIVE_Offset)) !=
+      (ctx.prev_ICSR & (0xF << ICSR_VECTACTIVE_Offset)))
   {
     fmt.eprintfln("[ERROR] Written to SCB ICSR %s, %s",
       "bits [8:0]", "ReadOnly bits",
     )
+    os.exit(1)
+  }
+}
+
+handle_AIRCR :: proc(scb: ^mcu.SCB, ctx: ^SCB_Context)
+{
+  if (scb.AIRCR & (0xFF << AIRCR_VECTKEY_Offset)) != AIRCR_VECTKEY {
+    fmt.eprintln("[WARN ] Written to SCB AIRCR but high 16 bits are not VECTKEY (0x05FA). Ignoring write.")
+    return
+  }
+
+  if (scb.AIRCR & (1 << AIRCR_ENDIANNESS_Offset)) != AIRCR_ENDIANNESS {
+    fmt.eprintln("[ERROR] Written to SCB AIRCR ENDIANNENSS bit, a ReadOnly register")
+    os.exit(1)
+  }
+
+  if (scb.AIRCR & (1 << AIRCR_SYSRESETREQ_Offset)) != 0 {
+    // TODO: Software reset (!)
+  }
+
+  if (scb.AIRCR & (3 << 0)) != 0 {
+    fmt.eprintln("[ERROR] Written 1 to SCB AIRCR VECTCLRACTIVE or VECTRESET, which should only be 0")
     os.exit(1)
   }
 }
@@ -383,6 +425,11 @@ SCB_handler :: proc(rawctx, this_rawctx: rawptr)
   if scb_current.ICSR != ctx.prev_ICSR {
     handle_ICSR(&scb_current, ctx)
     ctx.prev_ICSR = scb.ICSR
+  }
+
+  if scb_current.AIRCR != ctx.prev_AIRCR {
+    handle_AIRCR(&scb_current, ctx)
+    ctx.prev_AIRCR = scb.AIRCR
   }
 }
 
