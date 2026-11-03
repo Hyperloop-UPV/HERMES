@@ -29,11 +29,11 @@ What has been simulated:
  - VTOR
  - SCR (will be used elsewhere, no simulation needed here)
  - CCR (only checks for writes in readonly fields)
+ - SHPR (will be used elsewhere, no simulation needed here)
 
 What is missing:
  - ICSR Interrupt calls
  - AIRCR Software reset
- - SHPR
  - SHCSR
  - CFSR
  - HFSR
