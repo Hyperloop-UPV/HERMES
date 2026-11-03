@@ -338,6 +338,7 @@ CPUID_VALUE :: (CPUID_IMPLEMENTER << 24) | (CPUID_VARIANT << 20) | (CPUID_CONSTA
 SCB_Context :: struct {
   prev_ICSR: u32,
   prev_AIRCR: u32,
+  prev_CCR: u32,
 }
 
 @(private="file")
@@ -472,6 +473,11 @@ SCB_handler :: proc(rawctx, this_rawctx: rawptr)
     handle_AIRCR(&scb_current, ctx)
     ctx.prev_AIRCR = scb.AIRCR
   }
+
+  if scb_current.CCR != ctx.prev_CCR {
+    handle_CCR(&scb_current, ctx)
+    ctx.prev_CCR = scb.CCR
+  }
 }
 
 SCB_setup :: proc(rawctx: rawptr) -> rawptr
@@ -482,6 +488,7 @@ SCB_setup :: proc(rawctx: rawptr) -> rawptr
   ctx := new(SCB_Context, memory.arena_allocator)
   ctx.prev_ICSR = 0
   ctx.prev_AIRCR = 0
+  ctx.prev_CCR = CCR_BP | CCR_STKALIGN
 
   scb.CPUID = CPUID_VALUE
   scb.CCR = CCR_BP | CCR_STKALIGN
