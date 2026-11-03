@@ -21,8 +21,6 @@ import "core:dynlib"
 
 import mcu "mcu:stm32h723xx"
 
-// TODO: The rest of this peripheral, only the VTOR has been simulated for now.
-
 /*
 What has been simulated:
  - CPUID

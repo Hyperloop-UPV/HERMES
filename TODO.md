@@ -20,7 +20,7 @@
  - [ ] Micro emulating simulator example
 
 ## Peripherals
- - [ ] Finish SCB peripheral (only VTOR register is usable)
+ - [ ] Finish SCB peripheral
  - [ ] Finish RCC peripheral (nothing has been simulated yet, only the file has been added)
  - [x] Finish NVIC peripheral
  - [ ] Finish GPIO peripheral (only basic digitaloutput has been simulated)

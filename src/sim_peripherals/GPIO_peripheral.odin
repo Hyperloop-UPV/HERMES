@@ -17,19 +17,35 @@ import "core:time"
 import mcu "mcu:stm32h723xx"
 import "../../usim"
 
+// TODO: GPIOx_LCKR locking mechanism
+
 GPIO_Context :: struct {
   // to distinguish between gpios, so we can use a single handler and step procs
   gpio: ^mcu.GPIO,
-  is_pin_on: [16]bool,
+  is_pin_on: u16,
   letter: u8,
 }
 
 @(private="file")
 GPIO_Mode :: enum u32 {
-  Input = 0,
-  Output = 1,
-  Alt = 2,
-  Analog = 3,
+  Input  = 0b00,
+  Output = 0b01,
+  Alt    = 0b10,
+  Analog = 0b11,
+}
+
+@(private="file")
+GPIO_Output_Type :: enum u32 {
+  PushPull  = 0,
+  OpenDrain = 1,
+}
+
+@(private="file")
+GPIO_Pull :: enum u32 {
+  None     = 0b00,
+  PullUp   = 0b01,
+  PullDown = 0b10,
+  Reserved = 0b11,
 }
 
 @(private="file") GPIO_BSRR_BS0 :: 0
@@ -43,35 +59,26 @@ GPIO_handler :: proc(rawctx, this_rawctx: rawptr)
 
   is_pin_on_prev := gpio.is_pin_on
 
+  if gpio.gpio.BSRR != 0 {
+    // set bits from BS
+    new_odr := gpio.gpio.ODR | (gpio.gpio.BSRR & 0xFFFF)
+    // clear bits from BR
+    new_odr = new_odr & ~(gpio.gpio.BSRR >> GPIO_BSRR_BR0)
+
+    gpio.gpio.BSRR = 0
+    gpio.gpio.ODR = new_odr
+  }
+
+  // TODO: If this bit gets set in RCC, the event needs to be enqueued
   rcc_bit := u32(rcc.AHB4ENR >> u32(gpio.letter - 'A')) & 1
   if rcc_bit == 1 {
-    for pin: u32 = 0; pin < 16; pin += 1 {
-      mode := (gpio.gpio.MODER >> (pin * 2)) & 0b11
-
-      if GPIO_Mode(mode) == .Output {
-        set_bit := (gpio.gpio.BSRR >> (GPIO_BSRR_BS0 + pin)) & 1
-        reset_bit := (gpio.gpio.BSRR >> (GPIO_BSRR_BR0 + pin)) & 1
-
-        if set_bit != 0 {
-          gpio.is_pin_on[pin] = true
-        }
-
-        if reset_bit != 0 {
-          gpio.is_pin_on[pin] = false
-
-          new_bsrr := gpio.gpio.BSRR & ~(1 << (GPIO_BSRR_BS0 + pin))
-          new_bsrr = new_bsrr & ~(1 << (GPIO_BSRR_BR0 + pin))
-
-          gpio.gpio.BSRR = new_bsrr
-        }
-      }
-    }
+    gpio.is_pin_on = u16(gpio.gpio.ODR)
   }
 
   if is_pin_on_prev != gpio.is_pin_on {
     event: usim.Event
     event.as.gpio_mod.gpio_char = gpio.letter
-    event.as.gpio_mod.value = gpio.gpio.BSRR
+    event.as.gpio_mod.value = gpio.gpio.ODR
     enqueue_event(memory, &event, .GPIO_Modified)
   }
 }
@@ -88,7 +95,19 @@ GPIOA_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.gpio = memory.GPIOA_base
   ctx.letter = 'A'
 
-  return GPIO_generic_setup(memory, ctx)
+  // reset value for GPIOA MODER (see ref manual)
+  ctx.gpio.MODER = 0xABFF_FFFF
+  // reset value for GPIOA SPEEDR (see ref manual)
+  ctx.gpio.OSPEEDR = 0x0C00_0000
+  // reset value for GPIOB PUPDR (see ref manual)
+  ctx.gpio.PUPDR = 0x6400_0000
+
+  return GPIO_generic_setup(
+    memory, ctx,
+    special_moder = true,
+    special_speedr = true,
+    special_pupdr = true,
+  )
 }
 
 GPIOB_setup :: proc(rawctx: rawptr) -> rawptr
@@ -98,7 +117,19 @@ GPIOB_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.gpio = memory.GPIOB_base
   ctx.letter = 'B'
 
-  return GPIO_generic_setup(memory, ctx)
+  // reset value for GPIOB MODER (see ref manual)
+  ctx.gpio.MODER = 0xFFFF_FEBF
+  // reset value for GPIOB SPEEDR (see ref manual)
+  ctx.gpio.OSPEEDR = 0x0000_00C0
+  // reset value for GPIOB PUPDR (see ref manual)
+  ctx.gpio.PUPDR = 0x0000_0100
+
+  return GPIO_generic_setup(
+    memory, ctx,
+    special_moder = true,
+    special_speedr = true,
+    special_pupdr = true,
+  )
 }
 
 GPIOC_setup :: proc(rawctx: rawptr) -> rawptr
@@ -168,7 +199,10 @@ GPIOJ_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.gpio = memory.GPIOJ_base
   ctx.letter = 'J'
 
-  return GPIO_generic_setup(memory, ctx)
+  // reset value for GPIOJ MODER (see ref manual)
+  ctx.gpio.MODER = 0x00FF_0000
+
+  return GPIO_generic_setup(memory, ctx, special_moder = true)
 }
 
 GPIOK_setup :: proc(rawctx: rawptr) -> rawptr
@@ -178,12 +212,27 @@ GPIOK_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.gpio = memory.GPIOK_base
   ctx.letter = 'K'
 
-  return GPIO_generic_setup(memory, ctx)
+  // reset value for GPIOK MODER (see ref manual)
+  ctx.gpio.MODER = 0x0000_003F
+
+  return GPIO_generic_setup(memory, ctx, special_moder = true)
 }
 
-GPIO_generic_setup :: proc(rawctx: rawptr, ctx: ^GPIO_Context) -> rawptr
+GPIO_generic_setup :: proc(memory: ^Memory, ctx: ^GPIO_Context,
+  special_moder := false, special_speedr := false, special_pupdr := false) -> rawptr
 {
   // any generic setup needed goes here
+  if !special_moder {
+    // reset value for GPIOx MODER (x not being A,B,J or K)
+    ctx.gpio.MODER = 0xFFFF_FFFF
+  }
+  ctx.gpio.OTYPER = 0x0000_0000
+  if !special_speedr {
+    ctx.gpio.OSPEEDR = 0x0000_0000
+  }
+  if !special_pupdr {
+    ctx.gpio.PUPDR = 0x0000_0000
+  }
 
   return ctx
 }
