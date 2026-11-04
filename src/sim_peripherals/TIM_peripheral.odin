@@ -26,13 +26,13 @@ import mcu "mcu:stm32h723xx"
 // bits [9:8], division ratio between the timer clock CK_INT frequency and the dead-time
 // and sampling clock t_dts used bythe dead-time generators and the digital filters
 @(private="file") CR1_CKD_Offset :: 8
-@(private="file") CR1_CKD_Mask :: 0b11
+@(private="file") CR1_CKD_Mask :: 0b11 << CR1_CKD_Offset
 // 0 -> ARR is not buffered; 1 -> ARR is buffered
 @(private="file") CR1_ARPE_Offset :: 7
 
 // Center-aligned mode selection
 @(private="file") CR1_CMS_Offset :: 5
-@(private="file") CR1_CMS_Mask :: 0b11
+@(private="file") CR1_CMS_Mask :: 0b11 << CR1_CMS_Offset
 // The counter counts up or down depending on the direction bit (DIR)
 @(private="file") CR1_CMS_EdgeAligned          :: 0b00 << CR1_CMS_Offset
 // The counter counts up and down alternatively. Output compare interrupt flags of channels
@@ -43,7 +43,7 @@ import mcu "mcu:stm32h723xx"
 @(private="file") CR1_CMS_CenterAligned_Up     :: 0b10 << CR1_CMS_Offset
 // The counter counts up and down alternatively. Output compare interrupt flags of channels
 // configured in output (CCxS=00 in CCMRx register) are set when the counter is counting up or down
-@(private="file") CR1_CMS_CenterAligned_UpDown :: 0b10 << CR1_CMS_Offset
+@(private="file") CR1_CMS_CenterAligned_UpDown :: 0b11 << CR1_CMS_Offset
 
 // 0 -> upcounter; 1 -> downcounter
 // ReadOnly when the timer is configured in center-aligned or encoder mode
@@ -58,7 +58,7 @@ import mcu "mcu:stm32h723xx"
 
 // master mode selection 2
 @(private="file") CR2_MMS2_Offset :: 20
-@(private="file") CR2_MMS2_Mask :: 0b1111
+@(private="file") CR2_MMS2_Mask :: 0b1111 << CR2_MMS2_Offset
 @(private="file") CR2_MMS2_Reset              :: 0b0000 << CR2_MMS2_Offset
 @(private="file") CR2_MMS2_Enable             :: 0b0001 << CR2_MMS2_Offset
 @(private="file") CR2_MMS2_Update             :: 0b0010 << CR2_MMS2_Offset
@@ -101,7 +101,7 @@ import mcu "mcu:stm32h723xx"
 
 // Master mode selection
 @(private="file") CR2_MMS_Offset :: 4
-@(private="file") CR2_MMS_Mask :: 0b111
+@(private="file") CR2_MMS_Mask :: 0b111 << CR2_MMS_Offset
 @(private="file") CR2_MMS_Reset        :: 0b001
 @(private="file") CR2_MMS_Update       :: 0b010
 @(private="file") CR2_MMS_ComparePulse :: 0b011
@@ -125,10 +125,10 @@ import mcu "mcu:stm32h723xx"
 @(private="file") SMCR_ECE_Offset :: 14
 // External trigger prescaler
 @(private="file") SMCR_ETPS_Offset :: 12
-@(private="file") SMCR_ETPS_Mask :: 0b11
+@(private="file") SMCR_ETPS_Mask :: 0b11 << SMCR_ETPS_Offset
 // External trigger filter
 @(private="file") SMCR_ETF_Offset :: 8
-@(private="file") SMCR_ETF_Mask :: 0b1111
+@(private="file") SMCR_ETF_Mask :: 0b1111 << SMCR_ETF_Offset
 // Master/slave mode
 @(private="file") SMCR_MSM_Offset :: 7
 
@@ -319,6 +319,8 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
 
     // TODO: Make sure to use the whole clock tree here.
     time_change := i64(step_time) / i64(ctx.tim.PSC)
+    // center-aligned mode selection
+    cms := ctx.tim.CR1 & CR1_CMS_Mask
 
     new_cnt: i64
     if (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) != 0 {
@@ -326,14 +328,42 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
       new_cnt = i64(ctx.tim.CNT) - time_change
       if new_cnt < 0 {
         new_cnt = -new_cnt
-        call_update_interrupt(memory, ctx)
+
+        // Edge aligned or interrupt when down
+        shouldInt := (cms == CR1_CMS_EdgeAligned) ||
+          ((cms & (0b01 << CR1_CMS_Offset)) == 1)
+
+        if shouldInt {
+          call_update_interrupt(memory, ctx)
+        }
+
+        if cms != CR1_CMS_EdgeAligned {
+          // XOR only the DIR bit, keep the rest the same
+          ctx.tim.CR1 =
+            (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
+            (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
+        }
       }
     } else {
       // upcounter
       new_cnt = i64(ctx.tim.CNT) - time_change
       if new_cnt >= i64(ctx.tim.ARR & ctx.cnt_arr_mask) {
         new_cnt = new_cnt - i64(ctx.tim.ARR & ctx.cnt_arr_mask)
-        call_update_interrupt(memory, ctx)
+
+        // Edge aligned or interrupt when down
+        shouldInt := (cms == CR1_CMS_EdgeAligned) ||
+          ((cms & (0b10 << CR1_CMS_Offset)) == 1)
+
+        if shouldInt {
+          call_update_interrupt(memory, ctx)
+        }
+
+        if cms != CR1_CMS_EdgeAligned {
+          // XOR only the DIR bit, keep the rest the same
+          ctx.tim.CR1 =
+            (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
+            (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
+        }
       }
     }
 
