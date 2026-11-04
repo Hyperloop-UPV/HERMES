@@ -317,11 +317,11 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
 
   rcc_is_on := (ctx.rcc_enabled_reg^ & (1 << u32(ctx.rcc_enabled_bit))) != 0
   cen_is_on := (ctx.tim.CR1 & (1 << CR1_CEN_Offset)) != 0
-  if rcc_is_on && cen_is_on {
+  if rcc_is_on && cen_is_on && ctx.tim.ARR != 0 {
     // the timer clock is on and the counter is enabled
 
     // TODO: Make sure to use the whole clock tree here.
-    time_change := i64(step_time) / i64(ctx.tim.PSC)
+    time_change := i64(step_time) / (i64(ctx.tim.PSC) + 1)
     // center-aligned mode selection
     cms := ctx.tim.CR1 & CR1_CMS_Mask
 
