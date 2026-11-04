@@ -117,7 +117,126 @@ import mcu "mcu:stm32h723xx"
 // Capture/compare preloaded control
 @(private="file") CR2_CCPC_Offset :: 0
 
-// TODO: SMCR, DIER, SR, EGR, CCMRx, CCER, CNT, PSC, ARR, RCR, CCRx, BDTR, DCR, DMAR, AFx, TISEL
+// SMCR register bit values
+
+// External trigger polarity
+@(private="file") SMCR_ETP_Offset :: 15
+// External clock enable
+@(private="file") SMCR_ECE_Offset :: 14
+// External trigger prescaler
+@(private="file") SMCR_ETPS_Offset :: 12
+@(private="file") SMCR_ETPS_Mask :: 0b11
+// External trigger filter
+@(private="file") SMCR_ETF_Offset :: 8
+@(private="file") SMCR_ETF_Mask :: 0b1111
+// Master/slave mode
+@(private="file") SMCR_MSM_Offset :: 7
+
+// bits [21,20,6,5,4], Trigger selection
+@(private="file") SMCR_TS_0_Offset :: 4
+@(private="file") SMCR_TS_1_Offset :: 5
+@(private="file") SMCR_TS_2_Offset :: 6
+@(private="file") SMCR_TS_3_Offset :: 20
+@(private="file") SMCR_TS_4_Offset :: 21
+@(private="file") SMCR_TS_0Offset_Mask :: 1 << SMCR_TS_0_Offset | 1 << SMCR_TS_1_Offset | 1 << SMCR_TS_2_Offset | 1 << SMCR_TS_3_Offset | 1 << SMCR_TS_4_Offset
+@(private="file") SMCR_TS_InternalTrigger0   :: 0
+@(private="file") SMCR_TS_InternalTrigger1   :: 1 << SMCR_TS_0_Offset
+@(private="file") SMCR_TS_InternalTrigger2   :: 1 << SMCR_TS_1_Offset
+@(private="file") SMCR_TS_InternalTrigger3   :: 1 << SMCR_TS_1_Offset | 1 << SMCR_TS_0_Offset
+@(private="file") SMCR_TS_TI1_EdgeDetector   :: 1 << SMCR_TS_2_Offset
+@(private="file") SMCR_TS_FilteredTimerIn1   :: 1 << SMCR_TS_2_Offset | 1 << SMCR_TS_0_Offset
+@(private="file") SMCR_TS_FilteredTimerIn2   :: 1 << SMCR_TS_2_Offset | 1 << SMCR_TS_1_Offset
+@(private="file") SMCR_TS_ExternalTriggerIn  :: 1 << SMCR_TS_2_Offset | 1 << SMCR_TS_1_Offset | 1 << SMCR_TS_0_Offset
+@(private="file") SMCR_TS_InternalTrigger12  :: 1 << SMCR_TS_4_Offset
+@(private="file") SMCR_TS_InternalTrigger13  :: 1 << SMCR_TS_4_Offset | 1 << SMCR_TS_0_Offset
+
+// bits [16,2,1,0], Slave mode selection
+@(private="file") SMCR_SMS_0_Offset :: 0
+@(private="file") SMCR_SMS_1_Offset :: 1
+@(private="file") SMCR_SMS_2_Offset :: 2
+@(private="file") SMCR_SMS_3_Offset :: 16
+@(private="file") SMCR_SMS_0Offset_Mask :: 1 << SMCR_SMS_0_Offset | 1 << SMCR_SMS_1_Offset | 1 << SMCR_SMS_2_Offset | 1 << SMCR_SMS_3_Offset
+// If CEN = '1' then the prescaler is clocked directly by the internal clock
+@(private="file") SMCR_SMS_Disabled      :: 0
+@(private="file") SMCR_SMS_EncoderMode1  :: 1 << SMCR_SMS_0_Offset
+@(private="file") SMCR_SMS_EncoderMode2  :: 1 << SMCR_SMS_1_Offset
+@(private="file") SMCR_SMS_EncoderMode3  :: 1 << SMCR_SMS_1_Offset | 1 << SMCR_SMS_0_Offset
+@(private="file") SMCR_SMS_ResetMode     :: 1 << SMCR_SMS_2_Offset
+@(private="file") SMCR_SMS_GatedMode     :: 1 << SMCR_SMS_2_Offset | 1 << SMCR_SMS_0_Offset
+@(private="file") SMCR_SMS_TriggerMode   :: 1 << SMCR_SMS_2_Offset | 1 << SMCR_SMS_1_Offset
+@(private="file") SMCR_SMS_ExtClockMode  :: 1 << SMCR_SMS_2_Offset | 1 << SMCR_SMS_1_Offset | 1 << SMCR_SMS_0_Offset
+// Combined reset + trigger mode
+@(private="file") SMCR_SMS_ResetTrigger  :: 1 << SMCR_SMS_3_Offset
+
+// DIER register bit values
+
+// Trigger DMA request enable
+@(private="file") DIER_TDE_Offset   :: 14
+// COM DMA request enable
+@(private="file") DIER_COMDE_Offset :: 13
+// Capture/Compare 4 DMA request enable
+@(private="file") DIER_CC4DE_Offset :: 12
+// Capture/Compare 3 DMA request enable
+@(private="file") DIER_CC3DE_Offset :: 11
+// Capture/Compare 2 DMA request enable
+@(private="file") DIER_CC2DE_Offset :: 10
+// Capture/Compare 1 DMA request enable
+@(private="file") DIER_CC1DE_Offset :: 9
+// Update DMA request enable
+@(private="file") DIER_UDE_Offset   :: 8
+// Break interrupt enable
+@(private="file") DIER_BIE_Offset   :: 7
+// Trigger interrupt enable
+@(private="file") DIER_TIE_Offset   :: 6
+// COM interrupt enable
+@(private="file") DIER_COMIE_Offset :: 5
+// Capture/Compare 4 interrupt enable
+@(private="file") DIER_CC4IE_Offset :: 4
+// Capture/Compare 3 interrupt enable
+@(private="file") DIER_CC3IE_Offset :: 3
+// Capture/Compare 2 interrupt enable
+@(private="file") DIER_CC2IE_Offset :: 2
+// Capture/Compare 1 interrupt enable
+@(private="file") DIER_CC1IE_Offset :: 1
+// Update interrupt enable
+@(private="file") DIER_UIE_Offset   :: 0
+
+// SR register bit values
+
+// Compare 6 interrupt flag
+@(private="file") SR_CC6IF_Offset :: 17
+// Compare 5 interrupt flag
+@(private="file") SR_CC5IF_Offset :: 16
+// System Break interrupt flag
+@(private="file") SR_SBIF_Offset  :: 13
+// Compare 4 overcapture flag
+@(private="file") SR_CC4OF_Offset :: 12
+// Compare 3 overcapture flag
+@(private="file") SR_CC3OF_Offset :: 11
+// Compare 2 overcapture flag
+@(private="file") SR_CC2OF_Offset :: 10
+// Compare 1 overcapture flag
+@(private="file") SR_CC1OF_Offset :: 9
+// Break 2 interrupt flag
+@(private="file") SR_B2IF_Offset  :: 8
+// Break interrupt flag
+@(private="file") SR_BIF_Offset   :: 7
+// Trigger interrupt flag
+@(private="file") SR_TIF_Offset   :: 6
+// COM interrupt flag
+@(private="file") SR_COMIF_Offset :: 5
+// Compare 4 interrupt flag
+@(private="file") SR_CC4IF_Offset :: 4
+// Compare 3 interrupt flag
+@(private="file") SR_CC3IF_Offset :: 3
+// Compare 2 interrupt flag
+@(private="file") SR_CC2IF_Offset :: 2
+// Compare 1 interrupt flag
+@(private="file") SR_CC1IF_Offset :: 1
+// Update interrupt flag
+@(private="file") SR_UIF_Offset   :: 0
+
+// TODO: EGR, CCMRx, CCER, CNT, PSC, ARR, RCR, CCRx, BDTR, DCR, DMAR, AFx, TISEL
 
 @(private="file")
 TIM_Context :: struct {
