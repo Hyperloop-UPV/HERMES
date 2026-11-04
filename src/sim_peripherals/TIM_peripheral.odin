@@ -357,8 +357,8 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
     if shouldChangeDirection {
       // XOR only the DIR bit, keep the rest the same
       ctx.tim.CR1 =
-      (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
-      (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
+        (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
+        (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
     }
 
     ctx.tim.CNT = u32(new_cnt) & ctx.cnt_arr_mask
