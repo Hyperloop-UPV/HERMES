@@ -322,6 +322,9 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
     // center-aligned mode selection
     cms := ctx.tim.CR1 & CR1_CMS_Mask
 
+    shouldChangeDirection := false
+    shouldCallInterrupt := false
+
     new_cnt: i64
     if (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) != 0 {
       // downcounter
@@ -330,19 +333,9 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
         new_cnt = -new_cnt
 
         // Edge aligned or interrupt when down
-        shouldInt := (cms == CR1_CMS_EdgeAligned) ||
+        shouldCallInterrupt = (cms == CR1_CMS_EdgeAligned) ||
           ((cms & (0b01 << CR1_CMS_Offset)) == 1)
-
-        if shouldInt {
-          call_update_interrupt(memory, ctx)
-        }
-
-        if cms != CR1_CMS_EdgeAligned {
-          // XOR only the DIR bit, keep the rest the same
-          ctx.tim.CR1 =
-            (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
-            (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
-        }
+        shouldChangeDirection = cms != CR1_CMS_EdgeAligned
       }
     } else {
       // upcounter
@@ -351,20 +344,21 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
         new_cnt = new_cnt - i64(ctx.tim.ARR & ctx.cnt_arr_mask)
 
         // Edge aligned or interrupt when down
-        shouldInt := (cms == CR1_CMS_EdgeAligned) ||
+        shouldCallInterrupt = (cms == CR1_CMS_EdgeAligned) ||
           ((cms & (0b10 << CR1_CMS_Offset)) == 1)
-
-        if shouldInt {
-          call_update_interrupt(memory, ctx)
-        }
-
-        if cms != CR1_CMS_EdgeAligned {
-          // XOR only the DIR bit, keep the rest the same
-          ctx.tim.CR1 =
-            (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
-            (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
-        }
+        shouldChangeDirection = cms != CR1_CMS_EdgeAligned
       }
+    }
+
+    if shouldCallInterrupt {
+      call_update_interrupt(memory, ctx)
+    }
+
+    if shouldChangeDirection {
+      // XOR only the DIR bit, keep the rest the same
+      ctx.tim.CR1 =
+      (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) |
+      (~ctx.tim.CR1 & (1 << CR1_DIR_Offset))
     }
 
     ctx.tim.CNT = u32(new_cnt) & ctx.cnt_arr_mask
