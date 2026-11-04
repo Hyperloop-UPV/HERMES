@@ -46,7 +46,7 @@ import mcu "mcu:stm32h723xx"
 @(private="file") CR1_CMS_CenterAligned_UpDown :: 0b10 << CR1_CMS_Offset
 
 // 0 -> upcounter; 1 -> downcounter
-// Only read when the timer is configured in center-aligned or encoder mode
+// ReadOnly when the timer is configured in center-aligned or encoder mode
 @(private="file") CR1_DIR_Offset :: 4
 // one pulse mode -> counter stops counting at the next update event (CEN gets cleared)
 @(private="file") CR1_OPM_Offset :: 3
@@ -236,13 +236,28 @@ import mcu "mcu:stm32h723xx"
 // Update interrupt flag
 @(private="file") SR_UIF_Offset   :: 0
 
-// TODO: EGR, CCMRx, CCER, CNT, PSC, ARR, RCR, CCRx, BDTR, DCR, DMAR, AFx, TISEL
+// TODO: CCMRx
+// TODO: CCER
+
+// CNT register bit values
+
+// read-only copy of the UIF bit of the TIMx_ISR register
+// or 0, if UIFREMAP bit in CR1 is reset
+@(private="file") CNT_UIFCPY_Offset :: 31
+
+// TODO: EGR, PSC, ARR, RCR, CCRx, BDTR, DCR, DMAR, AFx, TISEL
 
 @(private="file")
 TIM_Context :: struct {
   tim: ^mcu.TIM,
   // Irq address for the counter
   irq_addr: ^#type proc "c"(),
+
+  // Mask for 32/16 bit timers:
+  // 0x0000_FFFF on 16 bit
+  // 0xFFFF_FFFF on 32 bit
+  cnt_arr_mask: u32,
+
   rcc_enabled_reg: ^u32,
   rcc_enabled_bit: u8,
   // Given at init time: 1,2,3,4,5,6,7,8,12,13,14,15,16,17,23 or 24
@@ -279,6 +294,15 @@ TIM_Context :: struct {
   //change_was_internal: bool,
 }
 
+@(private="file")
+call_update_interrupt :: proc(memory: ^Memory, ctx: ^TIM_Context)
+{
+  ctx.tim.SR |= 1 << SR_UIF_Offset
+  ctx.irq_addr^()
+
+  // TODO: usim event here
+}
+
 TIM_handler :: proc(rawctx, this_rawctx: rawptr)
 {
 }
@@ -291,8 +315,29 @@ TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
   rcc_is_on := (ctx.rcc_enabled_reg^ & (1 << u32(ctx.rcc_enabled_bit))) != 0
   cen_is_on := (ctx.tim.CR1 & (1 << CR1_CEN_Offset)) != 0
   if rcc_is_on && cen_is_on {
-    // the counter is on
-    // TODO: count down/up or both here!
+    // the timer clock is on and the counter is enabled
+
+    // TODO: Make sure to use the whole clock tree here.
+    time_change := i64(step_time) / i64(ctx.tim.PSC)
+
+    new_cnt: i64
+    if (ctx.tim.CR1 & (1 << CR1_DIR_Offset)) != 0 {
+      // downcounter
+      new_cnt = i64(ctx.tim.CNT) - time_change
+      if new_cnt < 0 {
+        new_cnt = -new_cnt
+        call_update_interrupt(memory, ctx)
+      }
+    } else {
+      // upcounter
+      new_cnt = i64(ctx.tim.CNT) - time_change
+      if new_cnt >= i64(ctx.tim.ARR & ctx.cnt_arr_mask) {
+        new_cnt = new_cnt - i64(ctx.tim.ARR & ctx.cnt_arr_mask)
+        call_update_interrupt(memory, ctx)
+      }
+    }
+
+    ctx.tim.CNT = u32(new_cnt) & ctx.cnt_arr_mask
   }
 }
 
@@ -306,7 +351,7 @@ TIM1_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim_num = 1
   // This is the irq for the CNT
   ctx.irq_num = mcu.TIM1_UP_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB2ENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB2ENR
   ctx.rcc_enabled_bit = RCC_APB2ENR_TIM1EN_Offset
   ctx.is_32bit = true
   ctx.is_break = true
@@ -320,14 +365,14 @@ TIM1_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM2_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM2_Offset :: 0
+  RCC_APB1LENR_TIM2EN_Offset :: 0
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
   ctx.tim = memory.TIM2_base
   ctx.tim_num = 2
   ctx.irq_num = mcu.TIM2_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM2EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -341,14 +386,14 @@ TIM2_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM3_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM3_Offset :: 1
+  RCC_APB1LENR_TIM3EN_Offset :: 1
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
   ctx.tim = memory.TIM3_base
   ctx.tim_num = 3
   ctx.irq_num = mcu.TIM3_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM3EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -362,14 +407,14 @@ TIM3_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM4_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM4_Offset :: 2
+  RCC_APB1LENR_TIM4EN_Offset :: 2
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
   ctx.tim = memory.TIM4_base
   ctx.tim_num = 4
   ctx.irq_num = mcu.TIM4_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM4EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -383,14 +428,14 @@ TIM4_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM5_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM5_Offset :: 3
+  RCC_APB1LENR_TIM5EN_Offset :: 3
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
   ctx.tim = memory.TIM5_base
   ctx.tim_num = 5
   ctx.irq_num = mcu.TIM5_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM5EN_Offset
   ctx.is_32bit = true
   ctx.is_break = false
@@ -404,7 +449,7 @@ TIM5_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM6_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM6_Offset :: 4
+  RCC_APB1LENR_TIM6EN_Offset :: 4
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
@@ -412,7 +457,7 @@ TIM6_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim_num = 6
   // TIM6 irq is shared with DAC
   ctx.irq_num = mcu.TIM6_DAC_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM6EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -426,14 +471,14 @@ TIM6_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM7_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM7_Offset :: 5
+  RCC_APB1LENR_TIM7EN_Offset :: 5
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
   ctx.tim = memory.TIM7_base
   ctx.tim_num = 7
   ctx.irq_num = mcu.TIM7_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM7EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -454,7 +499,7 @@ TIM8_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim = memory.TIM8_base
   ctx.tim_num = 8
   ctx.irq_num = mcu.TIM8_UP_TIM13_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB2ENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB2ENR
   ctx.rcc_enabled_bit = RCC_APB2ENR_TIM8EN_Offset
   ctx.is_32bit = false
   ctx.is_break = true
@@ -468,7 +513,7 @@ TIM8_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM12_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM12_Offset :: 6
+  RCC_APB1LENR_TIM12EN_Offset :: 6
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
@@ -476,7 +521,7 @@ TIM12_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim_num = 12
   // TIM12 irq is shared with TIM8 brk irq
   ctx.irq_num = mcu.TIM8_BRK_TIM12_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM12EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -490,7 +535,7 @@ TIM12_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM13_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM13_Offset :: 7
+  RCC_APB1LENR_TIM13EN_Offset :: 7
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
@@ -498,7 +543,7 @@ TIM13_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim_num = 13
   // TIM13 irq is shared with TIM8 irq
   ctx.irq_num = mcu.TIM8_UP_TIM13_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM13EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -512,7 +557,7 @@ TIM13_setup :: proc(rawctx: rawptr) -> rawptr
 
 TIM14_setup :: proc(rawctx: rawptr) -> rawptr
 {
-  RCC_APB1LENR_TIM14_Offset :: 8
+  RCC_APB1LENR_TIM14EN_Offset :: 8
 
   memory := cast(^Memory)rawctx
   ctx := new(TIM_Context, memory.arena_allocator)
@@ -520,7 +565,7 @@ TIM14_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim_num = 14
   // TIM14 irq is shared with TIM8 com trigger irq
   ctx.irq_num = mcu.TIM8_TRG_COM_TIM14_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1LENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1LENR
   ctx.rcc_enabled_bit = RCC_APB1LENR_TIM14EN_Offset
   ctx.is_32bit = false
   ctx.is_break = false
@@ -541,7 +586,7 @@ TIM15_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim = memory.TIM15_base
   ctx.tim_num = 15
   ctx.irq_num = mcu.TIM15_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB2ENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB2ENR
   ctx.rcc_enabled_bit = RCC_APB2ENR_TIM15EN_Offset
   ctx.is_32bit = false
   ctx.is_break = true
@@ -562,7 +607,7 @@ TIM16_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim = memory.TIM16_base
   ctx.tim_num = 16
   ctx.irq_num = mcu.TIM16_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB2ENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB2ENR
   ctx.rcc_enabled_bit = RCC_APB2ENR_TIM16EN_Offset
   ctx.is_32bit = false
   ctx.is_break = true
@@ -583,7 +628,7 @@ TIM17_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim = memory.TIM17_base
   ctx.tim_num = 17
   ctx.irq_num = mcu.TIM17_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB2ENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB2ENR
   ctx.rcc_enabled_bit = RCC_APB2ENR_TIM17EN_Offset
   ctx.is_32bit = false
   ctx.is_break = true
@@ -604,7 +649,7 @@ TIM23_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim = memory.TIM23_base
   ctx.tim_num = 23
   ctx.irq_num = mcu.TIM23_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1HENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1HENR
   ctx.rcc_enabled_bit = RCC_APB1HENR_TIM23EN_Offset
   ctx.is_32bit = true
   ctx.is_break = false
@@ -625,7 +670,7 @@ TIM24_setup :: proc(rawctx: rawptr) -> rawptr
   ctx.tim = memory.TIM24_base
   ctx.tim_num = 24
   ctx.irq_num = mcu.TIM24_IRQn
-  ctx.rcc_enabled_register = &memory.RCC_base.APB1HENR
+  ctx.rcc_enabled_reg = &memory.RCC_base.APB1HENR
   ctx.rcc_enabled_bit = RCC_APB1HENR_TIM24EN_Offset
   ctx.is_32bit = true
   ctx.is_break = false
@@ -643,6 +688,12 @@ TIM_generic_setup :: proc(memory: ^Memory, ctx: ^TIM_Context) -> rawptr
   scb := memory.SCB_base
   vector_base := uintptr(memory.arena_base) + uintptr(scb.VTOR)
   ctx.irq_addr = cast(^#type proc "c"())(vector_base + uintptr(ctx.irq_num) * size_of(rawptr))
+
+  if ctx.is_32bit {
+    ctx.cnt_arr_mask = 0xFFFF_FFFF
+  } else {
+    ctx.cnt_arr_mask = 0x0000_FFFF
+  }
 
   return ctx
 }
