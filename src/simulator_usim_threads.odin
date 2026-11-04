@@ -78,14 +78,19 @@ USim_check_version :: proc "c"(version: cstring) -> bool
   return string(version) == usim.API_VERSION
 }
 
-USim_subscribe_event :: proc "c"(rawmem: rawptr, kind: usim.Event_Kind, id: usim.Id) -> bool
+USim_subscribe_event :: proc "c"(rawmem: rawptr, id: usim.Id, kind: usim.Event_Kind, variant: usim.Event_Variant) -> bool
 {
   memory := cast(^peripherals.Memory)rawmem
   context = memory.odin_ctx
 
-  subscribers := memory.subscribed_events[kind]
+  key := peripherals.USim_Event_Key {
+    kind = kind,
+    variant = variant,
+  }
+
+  subscribers := memory.subscribed_events[key]
   subscribers |= 1 << u64(id)
-  memory.subscribed_events[kind] = subscribers
+  memory.subscribed_events[key] = subscribers
 
   return true
 }
@@ -105,12 +110,17 @@ USim_wait_event :: proc "c"(channel: usim.Recv_Channel, event: ^usim.Event) -> b
   return chan.recv_raw(ch, event)
 }
 
-USim_add_watch_event :: proc "c"(rawmem: rawptr, kind: usim.Event_Kind, id: usim.Id, callback: usim.Watch_Event_Proc_Callback, ctx: rawptr) -> bool
+USim_add_watch_event :: proc "c"(rawmem: rawptr, id: usim.Id, kind: usim.Event_Kind, variant: usim.Event_Variant, callback: usim.Watch_Event_Proc_Callback, ctx: rawptr) -> bool
 {
   memory := cast(^peripherals.Memory)rawmem
   context = memory.odin_ctx
 
-  watch, found := memory.event_watch[kind]
+  key := peripherals.USim_Event_Key {
+    kind = kind,
+    variant = variant,
+  }
+
+  watch, found := memory.event_watch[key]
 
   new_watch: []peripherals.USim_Event_Watch_Data
   if found {
@@ -124,7 +134,7 @@ USim_add_watch_event :: proc "c"(rawmem: rawptr, kind: usim.Event_Kind, id: usim
   new_watch[len(new_watch)-1].callback = callback
   new_watch[len(new_watch)-1].ctx = ctx
 
-  memory.event_watch[kind] = new_watch
+  memory.event_watch[key] = new_watch
 
   return true
 }

@@ -167,7 +167,7 @@ SysTick_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
 
         event: usim.Event
         event.as.systick.interrupt_called = true
-        enqueue_event(mem, &event, .SysTick)
+        enqueue_event(mem, &event, .SysTick, .SysTick_Interrupt)
       }
     }
   }

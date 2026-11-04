@@ -12,20 +12,14 @@ package peripherals
  *   Author: victor
  */
 
+import "base:intrinsics"
+
 import "core:time"
 
 import mcu "mcu:stm32h723xx"
 import "../../usim"
 
 // TODO: GPIOx_LCKR locking mechanism
-
-@(private="file")
-GPIO_Context :: struct {
-  // to distinguish between gpios, so we can use a single handler and step procs
-  gpio: ^mcu.GPIO,
-  is_pin_on: u16,
-  letter: u8,
-}
 
 @(private="file")
 GPIO_Mode :: enum u32 {
@@ -52,35 +46,47 @@ GPIO_Pull :: enum u32 {
 @(private="file") GPIO_BSRR_BS0 :: 0
 @(private="file") GPIO_BSRR_BR0 :: 16
 
+@(private="file")
+GPIO_Context :: struct {
+  // to distinguish between gpios, so we can use a single handler and step procs
+  gpio: ^mcu.GPIO,
+  letter: u8,
+}
+
 GPIO_handler :: proc(rawctx, this_rawctx: rawptr)
 {
   memory := cast(^Memory)rawctx
   rcc := memory.RCC_base
-  gpio := cast(^GPIO_Context)this_rawctx
+  ctx := cast(^GPIO_Context)this_rawctx
 
-  is_pin_on_prev := gpio.is_pin_on
+  odr_prev := ctx.gpio.ODR
 
-  if gpio.gpio.BSRR != 0 {
+  if ctx.gpio.BSRR != 0 {
     // set bits from BS
-    new_odr := gpio.gpio.ODR | (gpio.gpio.BSRR & 0xFFFF)
+    new_odr := ctx.gpio.ODR | (ctx.gpio.BSRR & 0xFFFF)
     // clear bits from BR
-    new_odr = new_odr & ~(gpio.gpio.BSRR >> GPIO_BSRR_BR0)
+    new_odr = new_odr & ~(ctx.gpio.BSRR >> GPIO_BSRR_BR0)
 
-    gpio.gpio.BSRR = 0
-    gpio.gpio.ODR = new_odr
+    ctx.gpio.BSRR = 0
+    ctx.gpio.ODR = new_odr
   }
 
   // TODO: If this bit gets set in RCC, the event needs to be enqueued
-  rcc_bit := u32(rcc.AHB4ENR >> u32(gpio.letter - 'A')) & 1
-  if rcc_bit == 1 {
-    gpio.is_pin_on = u16(gpio.gpio.ODR)
-  }
-
-  if is_pin_on_prev != gpio.is_pin_on {
+  rcc_bit := u32(rcc.AHB4ENR >> u32(ctx.letter - 'A')) & 1
+  if odr_prev != ctx.gpio.ODR && rcc_bit == 1 {
     event: usim.Event
-    event.as.gpio_mod.gpio_char = gpio.letter
-    event.as.gpio_mod.value = gpio.gpio.ODR
-    enqueue_event(memory, &event, .GPIO_Modified)
+
+    new_bits := odr_prev ~ ctx.gpio.ODR
+    for new_bits != 0 {
+      idx := intrinsics.count_trailing_zeros(new_bits)
+      new_bits &= ~(1 << idx)
+
+      event.as.gpio.value = (ctx.gpio.ODR & (1 << idx)) >> idx
+      variant := usim.Event_Variant(
+        u32(ctx.letter - 'A')*0x10 + idx,
+      )
+      enqueue_event(memory, &event, .GPIO, variant)
+    }
   }
 }
 

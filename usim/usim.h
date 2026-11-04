@@ -14,8 +14,8 @@
 #include <stdbool.h>
 
 #define USIM_API_VERSION_MAJOR 0
-#define USIM_API_VERSION_MAJOR 0
-#define USIM_API_VERSION_MAJOR 0
+#define USIM_API_VERSION_MINOR 1
+#define USIM_API_VERSION_PATCH 0
 #define USIM_API_VERSION \
   USIM_API_VERSION_MAJOR "." \
   USIM_API_VERSION_MINOR "." \
@@ -23,14 +23,195 @@
 
 typedef enum USim_Event_Kind {
   Event_Kind_Quit = 0,
-  Event_Kind_GPIO_Modified = 1,
+  Event_Kind_GPIO = 1,
   Event_Kind_SysTick = 2,
   Event_Kind_NVIC = 3,
-  Event_Kind_Count = 4,
+  Event_Kind_TIM = 4,
+  Event_Kind_Count = 5,
 } USim_Event_Kind;
 
+typedef enum USim_Event_Variant {
+  Event_Variant_GPIO_PA0 = 0,
+  Event_Variant_GPIO_PA1 = 1,
+  Event_Variant_GPIO_PA2 = 2,
+  Event_Variant_GPIO_PA3 = 3,
+  Event_Variant_GPIO_PA4 = 4,
+  Event_Variant_GPIO_PA5 = 5,
+  Event_Variant_GPIO_PA6 = 6,
+  Event_Variant_GPIO_PA7 = 7,
+  Event_Variant_GPIO_PA8 = 8,
+  Event_Variant_GPIO_PA9 = 9,
+  Event_Variant_GPIO_PA10 = 10,
+  Event_Variant_GPIO_PA11 = 11,
+  Event_Variant_GPIO_PA12 = 12,
+  Event_Variant_GPIO_PA13 = 13,
+  Event_Variant_GPIO_PA14 = 14,
+  Event_Variant_GPIO_PA15 = 15,
+  Event_Variant_GPIO_PB0 = 16,
+  Event_Variant_GPIO_PB1 = 17,
+  Event_Variant_GPIO_PB2 = 18,
+  Event_Variant_GPIO_PB3 = 19,
+  Event_Variant_GPIO_PB4 = 20,
+  Event_Variant_GPIO_PB5 = 21,
+  Event_Variant_GPIO_PB6 = 22,
+  Event_Variant_GPIO_PB7 = 23,
+  Event_Variant_GPIO_PB8 = 24,
+  Event_Variant_GPIO_PB9 = 25,
+  Event_Variant_GPIO_PB10 = 26,
+  Event_Variant_GPIO_PB11 = 27,
+  Event_Variant_GPIO_PB12 = 28,
+  Event_Variant_GPIO_PB13 = 29,
+  Event_Variant_GPIO_PB14 = 30,
+  Event_Variant_GPIO_PB15 = 31,
+  Event_Variant_GPIO_PC0 = 48,
+  Event_Variant_GPIO_PC1 = 49,
+  Event_Variant_GPIO_PC2 = 50,
+  Event_Variant_GPIO_PC3 = 51,
+  Event_Variant_GPIO_PC4 = 52,
+  Event_Variant_GPIO_PC5 = 53,
+  Event_Variant_GPIO_PC6 = 54,
+  Event_Variant_GPIO_PC7 = 55,
+  Event_Variant_GPIO_PC8 = 56,
+  Event_Variant_GPIO_PC9 = 57,
+  Event_Variant_GPIO_PC10 = 58,
+  Event_Variant_GPIO_PC11 = 59,
+  Event_Variant_GPIO_PC12 = 60,
+  Event_Variant_GPIO_PC13 = 61,
+  Event_Variant_GPIO_PC14 = 62,
+  Event_Variant_GPIO_PC15 = 63,
+  Event_Variant_GPIO_PD0 = 64,
+  Event_Variant_GPIO_PD1 = 65,
+  Event_Variant_GPIO_PD2 = 66,
+  Event_Variant_GPIO_PD3 = 67,
+  Event_Variant_GPIO_PD4 = 68,
+  Event_Variant_GPIO_PD5 = 69,
+  Event_Variant_GPIO_PD6 = 70,
+  Event_Variant_GPIO_PD7 = 71,
+  Event_Variant_GPIO_PD8 = 72,
+  Event_Variant_GPIO_PD9 = 73,
+  Event_Variant_GPIO_PD10 = 74,
+  Event_Variant_GPIO_PD11 = 75,
+  Event_Variant_GPIO_PD12 = 76,
+  Event_Variant_GPIO_PD13 = 77,
+  Event_Variant_GPIO_PD14 = 78,
+  Event_Variant_GPIO_PD15 = 79,
+  Event_Variant_GPIO_PE0 = 80,
+  Event_Variant_GPIO_PE1 = 81,
+  Event_Variant_GPIO_PE2 = 82,
+  Event_Variant_GPIO_PE3 = 83,
+  Event_Variant_GPIO_PE4 = 84,
+  Event_Variant_GPIO_PE5 = 85,
+  Event_Variant_GPIO_PE6 = 86,
+  Event_Variant_GPIO_PE7 = 87,
+  Event_Variant_GPIO_PE8 = 88,
+  Event_Variant_GPIO_PE9 = 89,
+  Event_Variant_GPIO_PE10 = 90,
+  Event_Variant_GPIO_PE11 = 91,
+  Event_Variant_GPIO_PE12 = 92,
+  Event_Variant_GPIO_PE13 = 93,
+  Event_Variant_GPIO_PE14 = 94,
+  Event_Variant_GPIO_PE15 = 95,
+  Event_Variant_GPIO_PF0 = 96,
+  Event_Variant_GPIO_PF1 = 97,
+  Event_Variant_GPIO_PF2 = 98,
+  Event_Variant_GPIO_PF3 = 99,
+  Event_Variant_GPIO_PF4 = 100,
+  Event_Variant_GPIO_PF5 = 101,
+  Event_Variant_GPIO_PF6 = 102,
+  Event_Variant_GPIO_PF7 = 103,
+  Event_Variant_GPIO_PF8 = 104,
+  Event_Variant_GPIO_PF9 = 105,
+  Event_Variant_GPIO_PF10 = 106,
+  Event_Variant_GPIO_PF11 = 107,
+  Event_Variant_GPIO_PF12 = 108,
+  Event_Variant_GPIO_PF13 = 109,
+  Event_Variant_GPIO_PF14 = 110,
+  Event_Variant_GPIO_PF15 = 111,
+  Event_Variant_GPIO_PG0 = 112,
+  Event_Variant_GPIO_PG1 = 113,
+  Event_Variant_GPIO_PG2 = 114,
+  Event_Variant_GPIO_PG3 = 115,
+  Event_Variant_GPIO_PG4 = 116,
+  Event_Variant_GPIO_PG5 = 117,
+  Event_Variant_GPIO_PG6 = 118,
+  Event_Variant_GPIO_PG7 = 119,
+  Event_Variant_GPIO_PG8 = 120,
+  Event_Variant_GPIO_PG9 = 121,
+  Event_Variant_GPIO_PG10 = 122,
+  Event_Variant_GPIO_PG11 = 123,
+  Event_Variant_GPIO_PG12 = 124,
+  Event_Variant_GPIO_PG13 = 125,
+  Event_Variant_GPIO_PG14 = 126,
+  Event_Variant_GPIO_PG15 = 127,
+  Event_Variant_GPIO_PH0 = 128,
+  Event_Variant_GPIO_PH1 = 129,
+  Event_Variant_GPIO_PH2 = 130,
+  Event_Variant_GPIO_PH3 = 131,
+  Event_Variant_GPIO_PH4 = 132,
+  Event_Variant_GPIO_PH5 = 133,
+  Event_Variant_GPIO_PH6 = 134,
+  Event_Variant_GPIO_PH7 = 135,
+  Event_Variant_GPIO_PH8 = 136,
+  Event_Variant_GPIO_PH9 = 137,
+  Event_Variant_GPIO_PH10 = 138,
+  Event_Variant_GPIO_PH11 = 139,
+  Event_Variant_GPIO_PH12 = 140,
+  Event_Variant_GPIO_PH13 = 141,
+  Event_Variant_GPIO_PH14 = 142,
+  Event_Variant_GPIO_PH15 = 143,
+  Event_Variant_GPIO_PJ0 = 160,
+  Event_Variant_GPIO_PJ1 = 161,
+  Event_Variant_GPIO_PJ2 = 162,
+  Event_Variant_GPIO_PJ3 = 163,
+  Event_Variant_GPIO_PJ4 = 164,
+  Event_Variant_GPIO_PJ5 = 165,
+  Event_Variant_GPIO_PJ6 = 166,
+  Event_Variant_GPIO_PJ7 = 167,
+  Event_Variant_GPIO_PJ8 = 168,
+  Event_Variant_GPIO_PJ9 = 169,
+  Event_Variant_GPIO_PJ10 = 170,
+  Event_Variant_GPIO_PJ11 = 171,
+  Event_Variant_GPIO_PJ12 = 172,
+  Event_Variant_GPIO_PJ13 = 173,
+  Event_Variant_GPIO_PJ14 = 174,
+  Event_Variant_GPIO_PJ15 = 175,
+  Event_Variant_GPIO_PK0 = 176,
+  Event_Variant_GPIO_PK1 = 177,
+  Event_Variant_GPIO_PK2 = 178,
+  Event_Variant_GPIO_PK3 = 179,
+  Event_Variant_GPIO_PK4 = 180,
+  Event_Variant_GPIO_PK5 = 181,
+  Event_Variant_GPIO_PK6 = 182,
+  Event_Variant_GPIO_PK7 = 183,
+  Event_Variant_GPIO_PK8 = 184,
+  Event_Variant_GPIO_PK9 = 185,
+  Event_Variant_GPIO_PK10 = 186,
+  Event_Variant_GPIO_PK11 = 187,
+  Event_Variant_GPIO_PK12 = 188,
+  Event_Variant_GPIO_PK13 = 189,
+  Event_Variant_GPIO_PK14 = 190,
+  Event_Variant_GPIO_PK15 = 191,
+  Event_Variant_SysTick_Interrupt = 0,
+  Event_Variant_NVIC_Interrupt = 0,
+  Event_Variant_TIM1_UP_Interrupt = 1,
+  Event_Variant_TIM2_UP_Interrupt = 2,
+  Event_Variant_TIM3_UP_Interrupt = 3,
+  Event_Variant_TIM4_UP_Interrupt = 4,
+  Event_Variant_TIM5_UP_Interrupt = 5,
+  Event_Variant_TIM6_UP_Interrupt = 6,
+  Event_Variant_TIM7_UP_Interrupt = 7,
+  Event_Variant_TIM8_UP_Interrupt = 8,
+  Event_Variant_TIM12_UP_Interrupt = 12,
+  Event_Variant_TIM13_UP_Interrupt = 13,
+  Event_Variant_TIM14_UP_Interrupt = 14,
+  Event_Variant_TIM15_UP_Interrupt = 15,
+  Event_Variant_TIM16_UP_Interrupt = 16,
+  Event_Variant_TIM17_UP_Interrupt = 17,
+  Event_Variant_TIM23_UP_Interrupt = 23,
+  Event_Variant_TIM24_UP_Interrupt = 24,
+} USim_Event_Variant;
+
 typedef struct USim_GPIO_Mod_Event {
-  uint8_t gpio_char;
   uint32_t value;
 } USim_GPIO_Mod_Event;
 
@@ -42,15 +223,21 @@ typedef struct USim_NVIC_Event {
   uint8_t interrupt_idx;
 } USim_NVIC_Event;
 
+typedef struct USim_TIM_Event {
+  uint8_t dummy;
+} USim_TIM_Event;
+
 typedef union USim_Event_Info {
-  USim_GPIO_Mod_Event gpio_mod;
+  struct {
+    uint32_t value;
+  } gpio;
   USim_SysTick_Event systick;
   USim_NVIC_Event nvic;
 } USim_Event_Info;
 
 typedef struct USim_Event {
   uint32_t kind;
-  uint8_t padding[4];
+  uint32_t variant;
   int64_t instant;
   const char* board_name;
   USim_Event_Info as;
@@ -60,10 +247,10 @@ typedef void* USim_Recv;
 
 typedef struct USim_API {
   bool (*check_version)(const char* version);
-  bool (*subscribe_event)(void *memory, USim_Event_Kind kind, uint64_t id);
+  bool (*subscribe_event)(void *memory, uint64_t id, USim_Event_Kind kind, USim_Event_Variant variant);
   bool (*poll_event)(void *channel, USim_Event *event);
   bool (*wait_event)(void *channel, USim_Event *event);
-  bool (*add_watch_event)(void *memory, USim_Event_Kind kind, uint64_t id, void (*callback)(USim_Event *event, void *ctx), void *ctx);
+  bool (*add_watch_event)(void *memory, uint64_t id, USim_Event_Kind kind, USim_Event_Variant variant, void (*callback)(USim_Event *event, void *ctx), void *ctx);
   void *channel;
   bool (*_init)(void *memory, USim_API *api, const char* board_name, uint64_t usim_id, void **usim_mem);
   bool (*_update)(void *usim_mem);

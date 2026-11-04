@@ -43,7 +43,7 @@ call_interrupt :: proc(memory: ^Memory, int_idx: u8)
 
   event: usim.Event
   event.as.nvic.interrupt_idx = int_idx
-  enqueue_event(memory, &event, .NVIC)
+  enqueue_event(memory, &event, .NVIC, .NVIC_Interrupt)
 }
 
 NVIC_handler :: proc(rawctx, this_rawctx: rawptr)

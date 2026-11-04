@@ -37,9 +37,9 @@ USim_init :: proc "c"(memory: rawptr, api: ^usim.API, board_name: cstring, usim_
   }
   context = usim_mem.odin_ctx
 
-  ok := api.subscribe_event(memory, .GPIO_Modified, usim_id)
-  ok = ok && api.subscribe_event(memory, .SysTick, usim_id)
-  ok = ok && api.subscribe_event(memory, .NVIC, usim_id)
+  ok :=      api.subscribe_event(memory, usim_id, .GPIO, .GPIO_PB0)
+  ok = ok && api.subscribe_event(memory, usim_id, .SysTick, .SysTick_Interrupt)
+  ok = ok && api.subscribe_event(memory, usim_id, .NVIC, .NVIC_Interrupt)
   if !ok {
     fmt.eprintfln("Could not subscribe to core simulator events")
     return false
@@ -61,11 +61,12 @@ USim_update :: proc "c"(usim_rawmem: rawptr) -> (end_early: bool)
       case .Quit: {}
       case .Count: {}
 
-      case .GPIO_Modified: {
-        fmt.printfln("GPIO_%c modified in %s board. New value: 0x%04x",
-          event.as.gpio_mod.gpio_char,
+      case .GPIO: {
+        fmt.printfln("GPIO P%c%d modified in %s board. New value: %d",
+          u8(event.variant / 0x10) + 'A',
+          event.variant % 0x10,
           event.board_name,
-          event.as.gpio_mod.value,
+          event.as.gpio.value,
         )
       }
 
@@ -77,6 +78,10 @@ USim_update :: proc "c"(usim_rawmem: rawptr) -> (end_early: bool)
         fmt.printfln("NVIC interrupt idx %u got called",
           event.as.nvic.interrupt_idx,
         )
+      }
+
+      case .TIM: {
+        fmt.printfln("TIM%d interrupt got called", event.variant)
       }
     }
   }

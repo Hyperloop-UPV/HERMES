@@ -186,8 +186,8 @@ DLLEXPORT bool USim_init(void *memory, USim_API *api, const char *board_name, ui
     usim_mem = *((USim_Memory**)usim_rawmem);
   }
 
-  bool ok = api->subscribe_event(memory, Event_Kind_GPIO_Modified, usim_id);
-  ok = ok && api->subscribe_event(memory, Event_Kind_SysTick, usim_id);
+  bool ok = api->subscribe_event(memory, usim_id, Event_Kind_GPIO, Event_Variant_GPIO_PA0);
+  ok = ok && api->subscribe_event(memory, usim_id, Event_Kind_SysTick, Event_Variant_SysTick_Interrupt);
   if(!ok) {
     SDL_Log("Error: Could not subscribe to core simulator events");
     return false;
@@ -331,9 +331,9 @@ sdlPollEvent:
       case Event_Kind_Quit: break;
       case Event_Kind_Count: break;
 
-      case Event_Kind_GPIO_Modified: {
-        mem->scrolling_gpio_data[event.as.gpio_mod.gpio_char - 'A'].AddPoint(
-          cur_time, (float)event.as.gpio_mod.value
+      case Event_Kind_GPIO: {
+        mem->scrolling_gpio_data[(event.variant / 0x10) - 'A'].AddPoint(
+          cur_time, (float)event.as.gpio.value
         );
       } break;
 

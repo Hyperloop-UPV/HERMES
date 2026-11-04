@@ -74,7 +74,10 @@ Board_API :: struct {
   library: dynlib.Library,
 }
 
-USim_Event_Watch_Key :: usim.Event_Kind
+USim_Event_Key :: struct {
+  kind: usim.Event_Kind,
+  variant: usim.Event_Variant,
+}
 USim_Event_Watch_Data :: struct {
   callback: usim.Watch_Event_Proc_Callback,
   ctx: rawptr,
@@ -403,12 +406,12 @@ Memory :: struct {
   /*
   Map which holds indices into channels array, one bit per usim, maximum of 64 (64 bits)
   */
-  subscribed_events: map[usim.Event_Kind]u64,
+  subscribed_events: map[USim_Event_Key]u64,
 
   /*
   Map which holds event watch callbacks that will be called when an event happens (stopping execution)
   */
-  event_watch: map[USim_Event_Watch_Key][]USim_Event_Watch_Data,
+  event_watch: map[USim_Event_Key][]USim_Event_Watch_Data,
 
   // NOTE: The arena does not support freeing of individual elements,
   //       it is purely for long-lived allocations
@@ -423,23 +426,27 @@ Memory :: struct {
 Prepares event with kind, instant and board_name then enqueues it
 into every subscriber's queue and calls event_watch callbacks
 */
-enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Event_Kind)
+enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Event_Kind, variant: usim.Event_Variant)
 {
-  kind := u32(event_kind)
+  key := USim_Event_Key {
+    kind = event_kind,
+    variant = variant,
+  }
 
   event.instant = i64(time.tick_since(memory.start_tick))
   event.board_name = memory.board_name
-  event.kind = kind
+  event.kind = u32(event_kind)
+  event.variant = u32(variant)
 
   subs: u64
-  watch_data, found := memory.event_watch[event_kind]
+  watch_data, found := memory.event_watch[key]
   if found {
     for wd in watch_data {
       wd.callback(event, wd.ctx)
     }
   }
 
-  subs, found = memory.subscribed_events[event_kind]
+  subs, found = memory.subscribed_events[key]
   if !found {
     // no subscribers to this specific event
     return
@@ -453,9 +460,9 @@ enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Even
     if chan.is_closed(ch.impl) {
       // remove the event from the hashmap
       subs_old: u64
-      subs_old, found = memory.subscribed_events[event_kind]
+      subs_old, found = memory.subscribed_events[key]
       subs_old &= ~(1 << idx)
-      memory.subscribed_events[event_kind] = subs_old
+      memory.subscribed_events[key] = subs_old
       continue
     }
 

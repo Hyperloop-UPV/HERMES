@@ -16,7 +16,7 @@ import "core:time"
 
 import mcu "mcu:stm32h723xx"
 // will be used for events (soon)
-//import "../../usim"
+import "../../usim"
 
 // CR1 register bit values
 
@@ -300,11 +300,14 @@ call_update_interrupt :: proc(memory: ^Memory, ctx: ^TIM_Context)
   ctx.tim.SR |= 1 << SR_UIF_Offset
   ctx.irq_addr^()
 
-  // TODO: usim event here
+  event: usim.Event
+  enqueue_event(memory, &event, .TIM, usim.Event_Variant(ctx.tim_num))
 }
 
 TIM_handler :: proc(rawctx, this_rawctx: rawptr)
 {
+  // TODO: Check for invalid writes
+  //  e.g. changing from upcounter to downcounter in a timer that does not support it.
 }
 
 TIM_step :: proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)

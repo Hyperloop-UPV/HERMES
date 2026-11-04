@@ -492,6 +492,7 @@ do_usim_codegen :: proc() -> bool
     "GPIO_Mod_Event",
     "SysTick_Event",
     "NVIC_Event",
+    "TIM_Event",
     "API",
     "Recv_Channel",
   }
@@ -523,10 +524,10 @@ do_usim_codegen :: proc() -> bool
 
   write_string(f, "#define USIM_API_VERSION_MAJOR ")
   write_string(f, usim.API_VERSION_MAJOR)
-  write_string(f, "\n#define USIM_API_VERSION_MAJOR ")
-  write_string(f, usim.API_VERSION_MAJOR)
-  write_string(f, "\n#define USIM_API_VERSION_MAJOR ")
-  write_string(f, usim.API_VERSION_MAJOR)
+  write_string(f, "\n#define USIM_API_VERSION_MINOR ")
+  write_string(f, usim.API_VERSION_MINOR)
+  write_string(f, "\n#define USIM_API_VERSION_PATCH ")
+  write_string(f, usim.API_VERSION_PATCH)
   write_string(f,
     "\n#define USIM_API_VERSION \\\n" +
     "  USIM_API_VERSION_MAJOR \".\" \\\n" +
@@ -542,9 +543,17 @@ do_usim_codegen :: proc() -> bool
   }
   write_string(f, "} USim_Event_Kind;\n\n")
 
-  write_struct(f, known_structs, usim.GPIO_Mod_Event, "GPIO_Mod_Event")
+  write_string(f, "typedef enum USim_Event_Variant {\n")
+  for kind in reflect.enum_fields_zipped(usim.Event_Variant) {
+    line := fmt.tprintfln("  %s%s = %v,", "Event_Variant_", kind.name, i64(kind.value))
+    write_string(f, line)
+  }
+  write_string(f, "} USim_Event_Variant;\n\n")
+
+  write_struct(f, known_structs, usim.GPIO_Event, "GPIO_Mod_Event")
   write_struct(f, known_structs, usim.SysTick_Event, "SysTick_Event")
   write_struct(f, known_structs, usim.NVIC_Event, "NVIC_Event")
+  write_struct(f, known_structs, usim.TIM_Event, "TIM_Event")
 
   write_string(f, "typedef union USim_Event_Info {\n")
   event_info_named := type_info_of(usim.Event_Info).variant.(runtime.Type_Info_Named)
