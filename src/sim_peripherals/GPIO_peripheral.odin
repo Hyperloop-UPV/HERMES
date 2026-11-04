@@ -19,6 +19,7 @@ import "../../usim"
 
 // TODO: GPIOx_LCKR locking mechanism
 
+@(private="file")
 GPIO_Context :: struct {
   // to distinguish between gpios, so we can use a single handler and step procs
   gpio: ^mcu.GPIO,

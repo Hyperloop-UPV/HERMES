@@ -82,6 +82,8 @@ USim_Event_Watch_Data :: struct {
 
 /* Some peripherals might use more than a single page here,
  * they won't be repeated but in Memory.handlers they will be
+ *
+ * The order of these matters!
  */
 SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SCnSCB */
@@ -95,14 +97,14 @@ SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
   {Stub_setup, Stub_step, Stub_handler, nil}, /* MPU */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* FPU */
 
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM2 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM3 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM4 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM5 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM6 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM7 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM13 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM14 */
+  {TIM2_setup, TIM_step, TIM_handler, nil}, /* TIM2 */
+  {TIM3_setup, TIM_step, TIM_handler, nil}, /* TIM3 */
+  {TIM4_setup, TIM_step, TIM_handler, nil}, /* TIM4 */
+  {TIM5_setup, TIM_step, TIM_handler, nil}, /* TIM5 */
+  {TIM6_setup, TIM_step, TIM_handler, nil}, /* TIM6 */
+  {TIM7_setup, TIM_step, TIM_handler, nil}, /* TIM7 */
+  {TIM13_setup, TIM_step, TIM_handler, nil}, /* TIM13 */
+  {TIM14_setup, TIM_step, TIM_handler, nil}, /* TIM14 */
 
   {Stub_setup, Stub_step, Stub_handler, nil}, /* VREFBUF */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* RTC */
@@ -134,8 +136,8 @@ SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
   {Stub_setup, Stub_step, Stub_handler, nil}, /* FDCAN2 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* FDCAN_CCU */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* FDCAN3 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM23 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM24 */
+  {TIM23_setup, TIM_step, TIM_handler, nil}, /* TIM23 */
+  {TIM24_setup, TIM_step, TIM_handler, nil}, /* TIM24 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* CEC */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* LPTIM1 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* PWR */
@@ -157,14 +159,14 @@ SimArray :: [mcu.PERIPHERAL_COUNT]Sim_Data {
   {Stub_setup, Stub_step, Stub_handler, nil}, /* EXTI */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* EXTI_D1 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* EXTI_D2 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM1 */
+  {TIM1_setup, TIM_step, TIM_handler, nil}, /* TIM1 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SPI1 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM8 */
+  {TIM8_setup, TIM_step, TIM_handler, nil}, /* TIM8 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* USART1 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM12 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM15 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM16 */
-  {Stub_setup, Stub_step, Stub_handler, nil}, /* TIM17 */
+  {TIM12_setup, TIM_step, TIM_handler, nil}, /* TIM12 */
+  {TIM15_setup, TIM_step, TIM_handler, nil}, /* TIM15 */
+  {TIM16_setup, TIM_step, TIM_handler, nil}, /* TIM16 */
+  {TIM17_setup, TIM_step, TIM_handler, nil}, /* TIM17 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SAI1 */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SAI1_Block_A */
   {Stub_setup, Stub_step, Stub_handler, nil}, /* SAI1_Block_B */
