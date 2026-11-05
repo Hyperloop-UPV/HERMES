@@ -65,12 +65,13 @@ struct USim_Memory {
   ImGuiIO *imgui_io;
   ImGuiStyle *imgui_style;
 
-  // ['A','K'] (both included)
-  //ScrollingBuffer scrolling_gpio_data['K' - 'A' + 1];
   ScrollingBuffer scrolling_gpio_data[Event_Variant_GPIO_PK15];
   ScrollingBuffer scrolling_systick_data;
   float newest_time;
   float time_history;
+
+  bool show_gpio_graph;
+  bool show_systick_graph;
   bool show_implot_style_editor;
 };
 
@@ -137,7 +138,7 @@ bool Init_Window(USim_Memory *mem)
   //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
   //IM_ASSERT(font != nullptr);
 
-  mem->time_history = 80.0f;
+  mem->time_history = 20.0f;
   mem->newest_time = (float)SDL_GetTicksNS() / 1000'000'000.0f;
 
   for(uint32_t i = 0; i < Event_Variant_GPIO_PK15; i++) {
@@ -335,7 +336,7 @@ sdlPollEvent:
 
   /* -------------------------------- */
 
-  ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+  ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
   const ImGuiViewport *viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
@@ -344,10 +345,23 @@ sdlPollEvent:
 
   float oldest = mem->newest_time - mem->time_history;
   if(ImGui::Begin("usim event gathering", 0, window_flags)) {
-    ImGui::SliderFloat("History", &mem->time_history, 1.0f, 160.0f, "%.1f s");
+    ImGui::SliderFloat("History", &mem->time_history, 1.0f, 80.0f, "%.1f s");
 
-    Plot_GPIOGraph(mem, oldest);
-    Plot_SysTickGraph(mem, oldest);
+    mem->show_gpio_graph |= ImGui::Button("Show GPIO Graph");
+    if(mem->show_gpio_graph) {
+      if(ImGui::Begin("GPIO Graph", &mem->show_gpio_graph)){
+        Plot_GPIOGraph(mem, oldest);
+      }
+      ImGui::End();
+    }
+
+    mem->show_systick_graph |= ImGui::Button("Show SysTick Graph");
+    if(mem->show_systick_graph) {
+      if(ImGui::Begin("SysTick Graph", &mem->show_systick_graph)) {
+        Plot_SysTickGraph(mem, oldest);
+      }
+      ImGui::End();
+    }
 
     // TODO: Some menu or smt for this?
     if(mem->show_implot_style_editor) {
