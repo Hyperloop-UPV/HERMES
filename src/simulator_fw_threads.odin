@@ -117,7 +117,7 @@ destroy_memory :: proc(memory: ^peripherals.Memory)
 
 /* --------------------------------------------- */
 
-create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both), start_tick: time.Tick) -> ^peripherals.Memory
+create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both)) -> ^peripherals.Memory
 {
   // setup allocator for peripheral internal memory.
   // 1 GB reserved but not committed size (virtual memory)
@@ -145,6 +145,9 @@ create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both), 
 
   // setup peripherals
   types := reflect.struct_field_types(mcu.Raw_Memory)
+
+  // some peripherals require addresses to other peripherals
+  // so we allocate all of the peripherals first then call setup() on all
   mem_current := memory.base
   for type_info, idx in types {
     ptr := type_info.variant.(reflect.Type_Info_Pointer)
@@ -157,13 +160,16 @@ create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both), 
 
     memory.simArray[idx] = simArrayConst[idx]
 
-    if memory.simArray[idx].setup != peripherals.Stub_setup {
-      memory.simArray[idx].this_ctx = memory.simArray[idx].setup(memory)
-    }
-
     for pageIdx: u32 = 0; pageIdx < pageCount; pageIdx += 1 {
       append(&memory.handlers, memory.simArray[idx].handler)
       append(&memory.peripheral_contexts, memory.simArray[idx].this_ctx)
+    }
+  }
+
+  // init all peripherals
+  for idx := 0; idx < len(types); idx += 1 {
+    if memory.simArray[idx].setup != peripherals.Stub_setup {
+      memory.simArray[idx].this_ctx = memory.simArray[idx].setup(memory)
     }
   }
 
@@ -174,8 +180,6 @@ create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both), 
   }
   reserve(&memory.subscribed_events, usim.Event_Kind.Count)
   reserve(&memory.event_watch, usim.Event_Kind.Count)
-
-  memory.start_tick = start_tick
 
   return memory
 }
@@ -284,6 +288,7 @@ board_thread_proc :: proc(rawdata: rawptr)
     }
 
     memory.board_api.update()
+    memory.simulation_time += i64(data.step_time)
 
     it += 1
     if (data.max_iterations != 0) && (it > data.max_iterations) {

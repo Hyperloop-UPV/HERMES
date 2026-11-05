@@ -396,7 +396,8 @@ Memory :: struct {
   base: rawptr,
   simArray: []Sim_Data,
 
-  start_tick: time.Tick,
+  //start_tick: time.Tick,
+  simulation_time: i64,
 
   /*
   Event queue channels for usim, one per attached usim
@@ -433,7 +434,7 @@ enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Even
     variant = variant,
   }
 
-  event.instant = i64(time.tick_since(memory.start_tick))
+  event.instant = memory.simulation_time // i64(time.tick_since(memory.start_tick))
   event.board_name = memory.board_name
   event.kind = u32(event_kind)
   event.variant = u32(variant)

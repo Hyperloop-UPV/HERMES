@@ -160,9 +160,8 @@ main :: proc()
 
   /* --------------------------------------------- */
 
-  start_tick := time.tick_now()
   for board, board_idx in opt.board {
-    memories[board_idx] = create_board(board, channels, start_tick)
+    memories[board_idx] = create_board(board, channels)
   }
 
   log.infof("Total page count: %v", memories[0].pageCount * len(opt.board))

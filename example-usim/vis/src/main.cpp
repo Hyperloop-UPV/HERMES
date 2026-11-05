@@ -66,7 +66,8 @@ struct USim_Memory {
   ImGuiStyle *imgui_style;
 
   // ['A','K'] (both included)
-  ScrollingBuffer scrolling_gpio_data['K' - 'A' + 1];
+  //ScrollingBuffer scrolling_gpio_data['K' - 'A' + 1];
+  ScrollingBuffer scrolling_gpio_data[Event_Variant_GPIO_PK15];
   ScrollingBuffer scrolling_systick_data;
   float newest_time;
   float time_history;
@@ -139,30 +140,12 @@ bool Init_Window(USim_Memory *mem)
   mem->time_history = 80.0f;
   mem->newest_time = (float)SDL_GetTicksNS() / 1000'000'000.0f;
 
-  mem->scrolling_gpio_data['A' - 'A'].Init();
-  mem->scrolling_gpio_data['B' - 'A'].Init();
-  mem->scrolling_gpio_data['C' - 'A'].Init();
-  mem->scrolling_gpio_data['D' - 'A'].Init();
-  mem->scrolling_gpio_data['E' - 'A'].Init();
-  mem->scrolling_gpio_data['F' - 'A'].Init();
-  mem->scrolling_gpio_data['G' - 'A'].Init();
-  mem->scrolling_gpio_data['H' - 'A'].Init();
-  // there is no gpio['I']
-  mem->scrolling_gpio_data['J' - 'A'].Init();
-  mem->scrolling_gpio_data['K' - 'A'].Init();
-  mem->scrolling_systick_data.Init(4096);
+  for(uint32_t i = 0; i < Event_Variant_GPIO_PK15; i++) {
+    mem->scrolling_gpio_data[i].Init(256);
+    mem->scrolling_gpio_data[i].AddPoint(mem->newest_time, 0);
+  }
 
-  mem->scrolling_gpio_data['A' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['B' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['C' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['D' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['E' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['F' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['G' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['H' - 'A'].AddPoint(mem->newest_time, 0);
-  // there is no gpio['I']
-  mem->scrolling_gpio_data['J' - 'A'].AddPoint(mem->newest_time, 0);
-  mem->scrolling_gpio_data['K' - 'A'].AddPoint(mem->newest_time, 0);
+  mem->scrolling_systick_data.Init(4096);
   mem->scrolling_systick_data.AddPoint(mem->newest_time, 0);
 
   mem->show_implot_style_editor = true;
@@ -186,7 +169,11 @@ DLLEXPORT bool USim_init(void *memory, USim_API *api, const char *board_name, ui
     usim_mem = *((USim_Memory**)usim_rawmem);
   }
 
-  bool ok = api->subscribe_event(memory, usim_id, Event_Kind_GPIO, Event_Variant_GPIO_PA0);
+  bool ok = true;
+  // subscribe to all gpio events
+  for(uint8_t i = 0; i < Event_Variant_GPIO_PK15; i++) {
+    ok = ok && api->subscribe_event(memory, usim_id, Event_Kind_GPIO, (USim_Event_Variant)i);
+  }
   ok = ok && api->subscribe_event(memory, usim_id, Event_Kind_SysTick, Event_Variant_SysTick_Interrupt);
   if(!ok) {
     SDL_Log("Error: Could not subscribe to core simulator events");
@@ -206,28 +193,94 @@ inline void plot_gpio_line(const char *title, ImPlotSpec *spec, ScrollingBuffer 
 
 void Plot_GPIOGraph(USim_Memory *mem, float oldest)
 {
-  if(ImPlot::BeginPlot("##GPIO_Graph", ImVec2(-1, 20*ImGui::GetTextLineHeight()))) {
-    ImPlot::SetupAxes("time", "GPIO values");
-    ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
-    ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (double)0xFFFFU);
+  static const char *gpio_names[] = {
+    "PA0", "PA1", "PA2", "PA3", "PA4", "PA5", "PA6", "PA7",
+    "PA8", "PA9", "PA10", "PA11", "PA12", "PA13", "PA14", "PA15",
+    "PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PB6", "PB7",
+    "PB8", "PB9", "PB10", "PB11", "PB12", "PB13", "PB14", "PB15",
+    "PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7",
+    "PC8", "PC9", "PC10", "PC11", "PC12", "PC13", "PC14", "PC15",
+    "PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7",
+    "PD8", "PD9", "PD10", "PD11", "PD12", "PD13", "PD14", "PD15",
+    "PE0", "PE1", "PE2", "PE3", "PE4", "PE5", "PE6", "PE7",
+    "PE8", "PE9", "PE10", "PE11", "PE12", "PE13", "PE14", "PE15",
+    "PF0", "PF1", "PF2", "PF3", "PF4", "PF5", "PF6", "PF7",
+    "PF8", "PF9", "PF10", "PF11", "PF12", "PF13", "PF14", "PF15",
+    "PG0", "PG1", "PG2", "PG3", "PG4", "PG5", "PG6", "PG7",
+    "PG8", "PG9", "PG10", "PG11", "PG12", "PG13", "PG14", "PG15",
+    "PH0", "PH1", "PH2", "PH3", "PH4", "PH5", "PH6", "PH7",
+    "PH8", "PH9", "PH10", "PH11", "PH12", "PH13", "PH14", "PH15",
+    0,     0,     0,     0,     0,     0,     0,     0,
+    0,     0,     0,     0,     0,     0,     0,     0,
+    "PJ0", "PJ1", "PJ2", "PJ3", "PJ4", "PJ5", "PJ6", "PJ7",
+    "PJ8", "PJ9", "PJ10", "PJ11", "PJ12", "PJ13", "PJ14", "PJ15",
+    "PK0", "PK1", "PK2", "PK3", "PK4", "PK5", "PK6", "PK7",
+    "PK8", "PK9", "PK10", "PK11", "PK12", "PK13", "PK14", "PK15",
+  };
 
-    ImPlotSpec spec;
-    spec.Stride = 2 * sizeof(float);
-    spec.FillAlpha = 0.8f;
+  static const char *generic_gpio_names[] = {
+    "PAx", "PBx", "PCx", "PDx", "PEx",
+    "PFx", "PGx", "PHx", 0, "PJx", "PKx",
+  };
 
-    plot_gpio_line("GPIOA", &spec, &mem->scrolling_gpio_data['A' - 'A']);
-    plot_gpio_line("GPIOB", &spec, &mem->scrolling_gpio_data['B' - 'A']);
-    plot_gpio_line("GPIOC", &spec, &mem->scrolling_gpio_data['C' - 'A']);
-    plot_gpio_line("GPIOD", &spec, &mem->scrolling_gpio_data['D' - 'A']);
-    plot_gpio_line("GPIOE", &spec, &mem->scrolling_gpio_data['E' - 'A']);
-    plot_gpio_line("GPIOF", &spec, &mem->scrolling_gpio_data['F' - 'A']);
-    plot_gpio_line("GPIOG", &spec, &mem->scrolling_gpio_data['G' - 'A']);
-    plot_gpio_line("GPIOH", &spec, &mem->scrolling_gpio_data['H' - 'A']);
-    // there is no 'I'
-    plot_gpio_line("GPIOJ", &spec, &mem->scrolling_gpio_data['J' - 'A']);
-    plot_gpio_line("GPIOK", &spec, &mem->scrolling_gpio_data['K' - 'A']);
+  static const char *plot_names[] = {
+    "##PAx_Graph", "##PBx_Graph", "##PCx_Graph", "##PDx_Graph", "##PEx_Graph",
+    "##PFx_Graph", "##PGx_Graph", "##PHx_Graph", 0, "##PJx_Graph", "##PKx_Graph",
+  };
 
-    ImPlot::EndPlot();
+  // TODO: Table of graphs so that it can be shown as 5 gpios | 5 gpios
+  //                                               or 2 | 2 | 2 | 2 | 2
+
+  float plotHeight = 8*ImGui::GetTextLineHeight();
+  ImVec2 windowSize = ImGui::GetMainViewport()->WorkSize;
+  static const float pad = 60;
+
+  static const int ncols = 5;
+  static const int nrows = SDL_arraysize(plot_names) / ncols;
+
+  uint8_t portpin_idx_min = 0;
+  uint8_t portpin_idx_max = 0;
+  bool before_skip = true;
+
+  // 10 gpios
+  if(ImGui::BeginTable("##GPIO_Graph_Table", ncols)) {
+    for(int rowidx = 0; rowidx < nrows; rowidx++) {
+      ImGui::TableNextRow();
+      for(int colidx = 0; colidx < ncols; colidx++) {
+        ImGui::TableSetColumnIndex(colidx);
+        size_t i = rowidx*ncols + colidx;
+        if(i > ((uint8_t)Event_Variant_GPIO_PH15 / 0x10)) {
+          // skip GPIOI since it doesn't exist in stm32h7xx
+          i++;
+          if(before_skip) {
+            portpin_idx_max += 0x10;
+            portpin_idx_min += 0x10;
+            before_skip = false;
+          }
+        }
+        portpin_idx_max += 0x10;
+
+        if(ImPlot::BeginPlot(plot_names[i], ImVec2((windowSize.x - pad)/ncols, plotHeight))) {
+          ImPlot::SetupAxes("time", generic_gpio_names[i]);
+          ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
+          ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, 1.0);
+
+          ImPlotSpec spec;
+          spec.Stride = 2 * sizeof(float);
+          spec.FillAlpha = 1.0f;
+
+          for(uint8_t idx = portpin_idx_min; idx < portpin_idx_max; idx++) {
+            plot_gpio_line(gpio_names[idx], &spec, &mem->scrolling_gpio_data[idx]);
+          }
+
+          ImPlot::EndPlot();
+        }
+
+        portpin_idx_min += 0x10;
+      }
+    }
+
+    ImGui::EndTable();
   }
 }
 
@@ -332,7 +385,7 @@ sdlPollEvent:
       case Event_Kind_Count: break;
 
       case Event_Kind_GPIO: {
-        mem->scrolling_gpio_data[(event.variant / 0x10) - 'A'].AddPoint(
+        mem->scrolling_gpio_data[event.variant].AddPoint(
           cur_time, (float)event.as.gpio.value
         );
       } break;
