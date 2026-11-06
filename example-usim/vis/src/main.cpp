@@ -233,7 +233,7 @@ void Plot_GPIOGraph(USim_Memory *mem, float oldest)
   //                                               or 2 | 2 | 2 | 2 | 2
 
   float plotHeight = 8*ImGui::GetTextLineHeight();
-  ImVec2 windowSize = ImGui::GetMainViewport()->WorkSize;
+  ImVec2 windowSize = ImGui::GetWindowSize();
   static const float pad = 60;
 
   static const int ncols = 5;
