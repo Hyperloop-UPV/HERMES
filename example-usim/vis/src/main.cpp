@@ -192,6 +192,12 @@ inline void plot_gpio_line(const char *title, ImPlotSpec *spec, ScrollingBuffer 
   ImPlot::PlotLine(title, &buf->Data[0].x, &buf->Data[0].y, buf->Data.size(), *spec);
 }
 
+int ImPlot_IntegerFormatter(double value, char *buff, int size, void *user_data)
+{
+  int integer_val = (int)value;
+  return SDL_snprintf(buff, size, "%d", integer_val);
+}
+
 void Plot_GPIOGraph(USim_Memory *mem, float oldest)
 {
   static const char *gpio_names[] = {
@@ -266,6 +272,10 @@ void Plot_GPIOGraph(USim_Memory *mem, float oldest)
           ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
           ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, 1.0);
 
+          // only have 0 and 1 with no decimal point
+          ImPlot::SetupAxisFormat(ImAxis_Y1, ImPlot_IntegerFormatter, 0);
+          ImPlot::SetupAxisTicks(ImAxis_Y1, 0.0, 1.0, 2);
+
           ImPlotSpec spec;
           spec.Stride = 2 * sizeof(float);
           spec.FillAlpha = 1.0f;
@@ -290,7 +300,11 @@ void Plot_SysTickGraph(USim_Memory *mem, float oldest)
   if(ImPlot::BeginPlot("##SysTick_Graph", ImVec2(-1, 8*ImGui::GetTextLineHeight()))) {
     ImPlot::SetupAxes("time", "SysTick");
     ImPlot::SetupAxisLimits(ImAxis_X1, oldest, mem->newest_time, ImGuiCond_Always);
-    ImPlot::SetupAxisLimits(ImAxis_Y1, -0.1, 1.1);
+
+    // only have 0 and 1 with no decimal point
+    ImPlot::SetupAxisFormat(ImAxis_Y1, ImPlot_IntegerFormatter, 0);
+    ImPlot::SetupAxisTicks(ImAxis_Y1, 0.0, 1.0, 2);
+    ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, 1.0);
 
     ImPlotSpec spec;
     spec.Stride = 2 * sizeof(float);
