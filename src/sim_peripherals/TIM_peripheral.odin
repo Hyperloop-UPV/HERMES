@@ -236,6 +236,27 @@ import "../../usim"
 // Update interrupt flag
 @(private="file") SR_UIF_Offset   :: 0
 
+// EGR register bit values
+
+// Break 2 generation
+@(private="file") EGR_B2G_Offset  :: 8
+// Break generation
+@(private="file") EGR_BG_Offset   :: 7
+// Trigger generation
+@(private="file") EGR_TG_Offset   :: 6
+// Capture/Compare control update generation
+@(private="file") EGR_COMG_Offset :: 5
+// Capture/Compare 4 generation
+@(private="file") EGR_CC4G_Offset :: 4
+// Capture/Compare 3 generation
+@(private="file") EGR_CC3G_Offset :: 3
+// Capture/Compare 2 generation
+@(private="file") EGR_CC2G_Offset :: 2
+// Capture/Compare 1 generation
+@(private="file") EGR_CC1G_Offset :: 1
+// Update generation
+@(private="file") EGR_UG_Offset   :: 0
+
 // TODO: CCMRx
 // TODO: CCER
 
@@ -245,7 +266,81 @@ import "../../usim"
 // or 0, if UIFREMAP bit in CR1 is reset
 @(private="file") CNT_UIFCPY_Offset :: 31
 
-// TODO: EGR, PSC, ARR, RCR, CCRx, BDTR, DCR, DMAR, AFx, TISEL
+// PSC register bit values
+// only PSC[15:0] prescaler value is here
+
+// ARR register bit values
+// only ARR[31:0] auto-reload value is here
+
+// RCR register bit values
+// only REP[15:0] repetition counter value is here
+
+// TODO: CCRx
+
+// BDTR register bit values
+
+// Break2 bidirectional
+@(private="file") BDTR_BK2BID_Offset  :: 29
+// Break bidirectional
+@(private="file") BDTR_BKBID_Offset   :: 28
+// Break2 disarm
+@(private="file") BDTR_BK2DSRM_Offset :: 27
+// Break disarm
+@(private="file") BDTR_BKDSRM_Offset  :: 26
+// Break 2 polarity
+@(private="file") BDTR_BK2P_Offset    :: 25
+// Break 2 enable
+@(private="file") BDTR_BK2E_Offset    :: 24
+// Break 2 filter
+@(private="file") BDTR_BK2F_Offset    :: 20
+@(private="file") BDTR_BK2F_Mask      :: 0b1111 << BDTR_BK2F_Offset
+// Break filter
+@(private="file") BDTR_BKF_Offset     :: 16
+@(private="file") BDTR_BKF_Mask       :: 0b1111 << BDTR_BKF_Offset
+// Main output enable
+@(private="file") BDTR_MOE_Offset     :: 15
+// Automatic output enable
+@(private="file") BDTR_AOE_Offset     :: 14
+// Break polarity
+@(private="file") BDTR_BKP_Offset     :: 13
+// Break enable
+@(private="file") BDTR_BKE_Offset     :: 12
+// Off-state selection for Run mode
+@(private="file") BDTR_OSSR_Offset    :: 11
+// Off-state selection for Idle mode
+@(private="file") BDTR_OSSI_Offset    :: 10
+// Lock configuration
+@(private="file") BDTR_LOCK_Offset    :: 8
+@(private="file") BDTR_LOCK_Mask      :: 0b11 << BDTR_LOCK_Offset
+// Dead-time generator setup
+@(private="file") BDTR_DTG_Offset     :: 0
+@(private="file") BDTR_DTG_Mask       :: 0xFF << BDTR_DTG_Offset
+
+// DCR register bit values
+
+// DMA burst length
+@(private="file") DCR_DBL_Offset :: 8
+@(private="file") DCR_DBL_Mask   :: 0b1111 << DCR_DBL_Offset
+// DMA base address
+@(private="file") DCR_DBA_Offset :: 0
+@(private="file") DCR_DBA_Mask   :: 0b1111 << DCR_DBA_Offset
+
+// DMAR register bit values
+// Only DMAB[31:0] is here, DMA register for burst accesses
+
+// TODO: AFx
+
+// TISEL register bit values
+// these mean different things per timer
+
+@(private="file") TISEL_TI4SEL_Offset :: 24
+@(private="file") TISEL_TI4SEL_Mask :: 0b1111 << TISEL_TI4SEL_Offset
+@(private="file") TISEL_TI3SEL_Offset :: 16
+@(private="file") TISEL_TI3SEL_Mask :: 0b1111 << TISEL_TI3SEL_Offset
+@(private="file") TISEL_TI2SEL_Offset :: 8
+@(private="file") TISEL_TI2SEL_Mask :: 0b1111 << TISEL_TI2SEL_Offset
+@(private="file") TISEL_TI1SEL_Offset :: 0
+@(private="file") TISEL_TI1SEL_Mask :: 0b1111 << TISEL_TI1SEL_Offset
 
 @(private="file")
 TIM_Context :: struct {
