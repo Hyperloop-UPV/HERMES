@@ -99,6 +99,8 @@ USim_step :: proc "c"(usim_rawmem: rawptr, step_time: i64) -> (end_early: bool)
   }
   usim_mem.fmu.time += dt_s
 
+  // NOTE: Read FMU outputs here with usim_mem.fmu.get_x()
+
   return false
 }
 
