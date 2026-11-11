@@ -30,7 +30,7 @@ import custom_log "src/logger"
 
 import "usim"
 
-SIMULATOR_NAME :: "sim"
+SIMULATOR_NAME :: "hermes"
 
 when ODIN_OS == .Windows {
   SIMULATOR_EXE :: SIMULATOR_NAME + ".exe"
