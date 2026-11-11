@@ -6,7 +6,20 @@ For any name proposals, please comment them in [#2](https://github.com/Hyperloop
 
 ### Roadmap
 
-TBD. To see short term wanted changes, see `TODO.md`.
+Version `0.9` (first release):
+ - [x] Multiple boards running in the same 'step time'
+ - [x] Global barrier for all `step` functions/procedures in the simulator (#4)
+ - [x] Event system from core sim to usim
+ - [ ] Event system from usim to core sim (#5)
+ - [ ] Handle Ctrl+C to stop the simulator from running in a graceful way (#3)
+ - [x] SysTick emulation
+ - [/] GPIO emulation (output is done, input is not)
+ - [x] Basic timer emulation
+ - [ ] PWM emulation
+ - [ ] DMA emulation
+
+Version `1.0`:
+ - [ ] Make a version of the HAL that builds with simulator native build
 
 ### Usage
 
@@ -36,6 +49,10 @@ on windows:
 ```
 odin build . -out:build.exe
 build
+```
+You can build the usim examples by adding `-build-example-usims` in build script:
+```
+./build -build-example-usims
 ```
 
 ### Source structure

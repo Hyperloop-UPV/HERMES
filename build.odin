@@ -51,6 +51,7 @@ Build_Options :: struct {
   mode: Build_Mode `args:"pos=0" usage:"Build mode, can be debug, release or rel-debug for release with debug info"`,
   disable_profiling: bool `usage:"Disable or enable profiling. Profiling is enabled by default"`,
   run: bool `usage:"Also run the simulator after building"`,
+  build_example_usims: bool `usage:"Build example usims"`,
 }
 
 run_command :: proc(cmd: []string, cwd := ".") -> (ok: bool)
@@ -212,7 +213,9 @@ build :: proc(opt: Build_Options) -> bool
 {
   build_sim(opt) or_return
   build_board(opt) or_return
-  build_usims(opt) or_return
+  if opt.build_example_usims {
+    build_usims(opt) or_return
+  }
 
   return true
 }

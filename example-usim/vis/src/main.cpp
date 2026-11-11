@@ -194,6 +194,9 @@ inline void plot_gpio_line(const char *title, ImPlotSpec *spec, ScrollingBuffer 
 
 int ImPlot_IntegerFormatter(double value, char *buff, int size, void *user_data)
 {
+  // we don't have useful user_data
+  (void)user_data;
+
   int integer_val = (int)value;
   return SDL_snprintf(buff, size, "%d", integer_val);
 }
