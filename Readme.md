@@ -23,11 +23,11 @@ Version `1.0`:
 ### Usage
 
 ```
-sim --cfg <config json> [--max-iterations <integer>] [--max-time <string>]
+hermes --cfg <config json> [--max-iterations <integer>] [--max-time <string>]
 ```
 example:
 ```
-sim --cfg cfg.json --max-iterations 1000_000
+hermes --cfg cfg.json --max-iterations 1000_000
 ```
 
 An example json config can be found in `cfg.json` and its schema in `https://raw.githubusercontent.com/Hyperloop-UPV/HERMES/refs/heads/main/misc/sim-cfg.schema.json`
@@ -71,6 +71,9 @@ Extra info:
  - `codegen/ioctl_defs_linux.c`: small code to autogenerate `sim_platform_linux_ioctls.odin`
  - `example-board`: an example code for a board
  - `example-usim`: example micro simulator code
+ - `example-usim/first`: a very simple example of a micro simulator
+ - `example-usim/vis`: a visualization micro simulator
+ - `example-usim/FunctionalMockupInterface`: an example micro simulator that loads and runs a FMU
  - `ols.json`: odin language server config, to specify any collections used
 
 ### Reasoning for the language we are going to use
