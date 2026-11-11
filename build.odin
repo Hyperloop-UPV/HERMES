@@ -99,8 +99,10 @@ append_odin_options :: proc(cmd: ^[dynamic; 256]string, opt: Build_Options)
 build_usims :: proc(opt: Build_Options) -> bool
 {
   VIS_BUILD_SCRIPT :: "build" when ODIN_OS != .Windows else "build.exe"
-
   cmd: [dynamic; 256]string
+
+  ///////////////////////////////////////
+  // GUI visualization example
 
   cur_dir, _ := os.get_working_directory(context.temp_allocator)
   if !os.exists("example-usim/vis/" + VIS_BUILD_SCRIPT) {
@@ -121,9 +123,26 @@ build_usims :: proc(opt: Build_Options) -> bool
   clear(&cmd)
   os.change_directory(cur_dir)
 
+  ///////////////////////////////////////
+  // first and most simple example
+
   append(&cmd,
     "odin", "build", "example-usim/first",
     "-out:bin/usim_example." + dynlib.LIBRARY_FILE_EXTENSION,
+    "-error-pos-style:unix",
+    "-collection:mcu=mcu",
+    "-build-mode:shared",
+  )
+  append_odin_options(&cmd, opt)
+  run_command(cmd[:]) or_return
+  clear(&cmd)
+
+  ///////////////////////////////////////
+  // functional mockup interface example
+
+  append(&cmd,
+    "odin", "build", "example-usim/FunctionalMockupInterface",
+    "-out:bin/usim_example_with_fmi." + dynlib.LIBRARY_FILE_EXTENSION,
     "-error-pos-style:unix",
     "-collection:mcu=mcu",
     "-build-mode:shared",
