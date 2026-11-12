@@ -1,9 +1,9 @@
-## Hyperloop Embedded Real-time Measurement & Emulation System (HERMES)
-Hyperloop UPV simulation core
+# Hyperloop Embedded Real-time Measurement & Emulation System (HERMES)
+### Hyperloop UPV simulation core
 
 This is a simulator. Not an emulator (yet).
 
-### Roadmap
+## Roadmap
 
 Version `0.9` (first release):
  - [x] Multiple boards running in the same 'step time'
