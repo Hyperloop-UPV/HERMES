@@ -15,7 +15,7 @@
  - [x] Plugin example
  - [x] FMI plugin example
  - [x] Make a slightly different interface for emulating plugins, for example for emulating an AFE (Analog Front End)
- - [ ] Event system from plugin to core simulator (other way round)
+ - [x] Event system from plugin to core simulator (other way round)
  - [ ] Emulating plugin example
 
 ## Peripherals

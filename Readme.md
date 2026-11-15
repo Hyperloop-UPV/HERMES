@@ -9,7 +9,7 @@ Version `0.9` (first release):
  - [x] Multiple boards running in the same 'step time'
  - [x] Global barrier for all `step` functions/procedures in the simulator ([#4](https://github.com/Hyperloop-UPV/HERMES/issues/4))
  - [x] Event system from core sim to plugin
- - [ ] Event system from plugin to core sim ([#5](https://github.com/Hyperloop-UPV/HERMES/issues/5))
+ - [x] Event system from plugin to core sim ([#5](https://github.com/Hyperloop-UPV/HERMES/issues/5))
  - [ ] Handle Ctrl+C to stop the simulator from running in a graceful way ([#3](https://github.com/Hyperloop-UPV/HERMES/issues/3))
  - [x] SysTick emulation
  - [/] GPIO emulation (output is done, input is not)
