@@ -15,49 +15,49 @@ import "base:runtime"
 import "core:fmt"
 import "core:time"
 
-import "../../usim"
+import "../../plugin"
 
-USim_Memory :: struct {
+Plugin_Memory :: struct {
   odin_ctx: runtime.Context,
-  api: ^usim.API,
+  api: ^plugin.API,
 }
 
 @(export)
-USim_init :: proc "c"(memory: rawptr, api: ^usim.API, board_name: cstring, usim_id: usim.Id, usim_rawmem: ^rawptr) -> bool
+Plugin_init :: proc "c"(memory: rawptr, api: ^plugin.API, board_name: cstring, plugin_id: plugin.Id, plugin_rawmem: ^rawptr) -> bool
 {
-  usim_mem: ^USim_Memory
-  if usim_rawmem^ == nil {
-    // First time USim_init has been called
+  plugin_mem: ^Plugin_Memory
+  if plugin_rawmem^ == nil {
+    // First time Plugin_init has been called
     context = runtime.default_context()
-    usim_mem = new(USim_Memory)
-    usim_mem.odin_ctx = context
-    usim_mem.api = api
+    plugin_mem = new(Plugin_Memory)
+    plugin_mem.odin_ctx = context
+    plugin_mem.api = api
   } else {
-    usim_mem = (cast(^^USim_Memory)usim_rawmem)^
+    plugin_mem = (cast(^^Plugin_Memory)plugin_rawmem)^
   }
-  context = usim_mem.odin_ctx
+  context = plugin_mem.odin_ctx
 
-  ok :=      api.subscribe_event(memory, usim_id, .GPIO, .GPIO_PB0)
-  ok = ok && api.subscribe_event(memory, usim_id, .SysTick, .SysTick_Interrupt)
-  ok = ok && api.subscribe_event(memory, usim_id, .NVIC, .NVIC_Interrupt)
+  ok :=      api.subscribe_event(memory, plugin_id, .GPIO, .GPIO_PB0)
+  ok = ok && api.subscribe_event(memory, plugin_id, .SysTick, .SysTick_Interrupt)
+  ok = ok && api.subscribe_event(memory, plugin_id, .NVIC, .NVIC_Interrupt)
   if !ok {
     fmt.eprintfln("Could not subscribe to core simulator events")
     return false
   }
 
-  usim_rawmem^ = usim_mem
+  plugin_rawmem^ = plugin_mem
   return true
 }
 
 @(export)
-USim_update :: proc "c"(usim_rawmem: rawptr) -> (end_early: bool)
+Plugin_update :: proc "c"(plugin_rawmem: rawptr) -> (end_early: bool)
 {
-  usim_mem := cast(^USim_Memory)usim_rawmem
-  context = usim_mem.odin_ctx
+  plugin_mem := cast(^Plugin_Memory)plugin_rawmem
+  context = plugin_mem.odin_ctx
 
-  event: usim.Event
-  for usim_mem.api.poll_event(usim_mem.api.channel, &event) {
-    switch usim.Event_Kind(event.kind) {
+  event: plugin.Recv_Event
+  for plugin_mem.api.poll_event(plugin_mem.api.channel, &event) {
+    switch plugin.Recv_Event_Kind(event.kind) {
       case .Quit: {}
       case .Count: {}
 
@@ -91,10 +91,10 @@ USim_update :: proc "c"(usim_rawmem: rawptr) -> (end_early: bool)
 }
 
 @(export)
-USim_deinit :: proc "c"(usim_rawmem: rawptr)
+Plugin_deinit :: proc "c"(plugin_rawmem: rawptr)
 {
-  usim_mem := cast(^USim_Memory)usim_rawmem
-  context = usim_mem.odin_ctx
+  plugin_mem := cast(^Plugin_Memory)plugin_rawmem
+  context = plugin_mem.odin_ctx
 
-  free(usim_mem)
+  free(plugin_mem)
 }

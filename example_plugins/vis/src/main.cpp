@@ -1,4 +1,4 @@
-#include "../../../usim/usim.h"
+#include "../../../plugin/hermes_plugin.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -53,8 +53,8 @@ struct ScrollingBuffer {
   }
 };
 
-struct USim_Memory {
-  USim_API *api;
+struct Plugin_Memory {
+  Plugin_API *api;
   SDL_Window *window;
   SDL_Renderer *renderer;
   uint64_t target_ns;
@@ -65,7 +65,7 @@ struct USim_Memory {
   ImGuiIO *imgui_io;
   ImGuiStyle *imgui_style;
 
-  ScrollingBuffer scrolling_gpio_data[Event_Variant_GPIO_PK15];
+  ScrollingBuffer scrolling_gpio_data[Recv_Event_Variant_GPIO_PK15];
   ScrollingBuffer scrolling_systick_data;
   float newest_time;
   float time_history;
@@ -75,7 +75,7 @@ struct USim_Memory {
   bool show_implot_style_editor;
 };
 
-bool Init_Window(USim_Memory *mem)
+bool Init_Window(Plugin_Memory *mem)
 {
   if(!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("Error: SDL_Init(): %s", SDL_GetError());
@@ -84,7 +84,7 @@ bool Init_Window(USim_Memory *mem)
 
   float primary_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
   mem->window = SDL_CreateWindow(
-    "usim example", (int)(1280*primary_scale), (int)(800*primary_scale),
+    "plugin example", (int)(1280*primary_scale), (int)(800*primary_scale),
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY
   );
   if(!mem->window) {
@@ -141,7 +141,7 @@ bool Init_Window(USim_Memory *mem)
   mem->time_history = 20.0f;
   mem->newest_time = (float)SDL_GetTicksNS() / 1000'000'000.0f;
 
-  for(uint32_t i = 0; i < Event_Variant_GPIO_PK15; i++) {
+  for(uint32_t i = 0; i < Recv_Event_Variant_GPIO_PK15; i++) {
     mem->scrolling_gpio_data[i].Init(256);
     mem->scrolling_gpio_data[i].AddPoint(mem->newest_time, 0);
   }
@@ -154,34 +154,34 @@ bool Init_Window(USim_Memory *mem)
   return true;
 }
 
-DLLEXPORT bool USim_init(void *memory, USim_API *api, const char *board_name, uint64_t usim_id, void **usim_rawmem)
+DLLEXPORT bool Plugin_init(void *memory, Plugin_API *api, const char *board_name, uint64_t plugin_id, void **plugin_rawmem)
 {
   (void)board_name;
-  USim_Memory *usim_mem;
-  if(!(*usim_rawmem)) {
-    usim_mem = (USim_Memory*)SDL_calloc(1, sizeof(USim_Memory));
+  Plugin_Memory *plugin_mem;
+  if(!(*plugin_rawmem)) {
+    plugin_mem = (Plugin_Memory*)SDL_calloc(1, sizeof(Plugin_Memory));
 
-    usim_mem->api = api;
-    usim_mem->target_ns = TARGET_NS;
-    if(!Init_Window(usim_mem)) {
+    plugin_mem->api = api;
+    plugin_mem->target_ns = TARGET_NS;
+    if(!Init_Window(plugin_mem)) {
       return false;
     }
   } else {
-    usim_mem = *((USim_Memory**)usim_rawmem);
+    plugin_mem = *((Plugin_Memory**)plugin_rawmem);
   }
 
   bool ok = true;
   // subscribe to all gpio events
-  for(uint8_t i = 0; i < Event_Variant_GPIO_PK15; i++) {
-    ok = ok && api->subscribe_event(memory, usim_id, Event_Kind_GPIO, (USim_Event_Variant)i);
+  for(uint8_t i = 0; i < Recv_Event_Variant_GPIO_PK15; i++) {
+    ok = ok && api->subscribe_event(memory, plugin_id, Recv_Event_Kind_GPIO, (Plugin_Recv_Event_Variant)i);
   }
-  ok = ok && api->subscribe_event(memory, usim_id, Event_Kind_SysTick, Event_Variant_SysTick_Interrupt);
+  ok = ok && api->subscribe_event(memory, plugin_id, Recv_Event_Kind_SysTick, Recv_Event_Variant_SysTick_Interrupt);
   if(!ok) {
     SDL_Log("Error: Could not subscribe to core simulator events");
     return false;
   }
 
-  *usim_rawmem = usim_mem;
+  *plugin_rawmem = plugin_mem;
   return true;
 }
 
@@ -201,7 +201,7 @@ int ImPlot_IntegerFormatter(double value, char *buff, int size, void *user_data)
   return SDL_snprintf(buff, size, "%d", integer_val);
 }
 
-void Plot_GPIOGraph(USim_Memory *mem, float oldest)
+void Plot_GPIOGraph(Plugin_Memory *mem, float oldest)
 {
   static const char *gpio_names[] = {
     "PA0", "PA1", "PA2", "PA3", "PA4", "PA5", "PA6", "PA7",
@@ -259,7 +259,7 @@ void Plot_GPIOGraph(USim_Memory *mem, float oldest)
       for(int colidx = 0; colidx < ncols; colidx++) {
         ImGui::TableSetColumnIndex(colidx);
         size_t i = rowidx*ncols + colidx;
-        if(i > ((uint8_t)Event_Variant_GPIO_PH15 / 0x10)) {
+        if(i > ((uint8_t)Recv_Event_Variant_GPIO_PH15 / 0x10)) {
           // skip GPIOI since it doesn't exist in stm32h7xx
           i++;
           if(before_skip) {
@@ -298,7 +298,7 @@ void Plot_GPIOGraph(USim_Memory *mem, float oldest)
   }
 }
 
-void Plot_SysTickGraph(USim_Memory *mem, float oldest)
+void Plot_SysTickGraph(Plugin_Memory *mem, float oldest)
 {
   if(ImPlot::BeginPlot("##SysTick_Graph", ImVec2(-1, 8*ImGui::GetTextLineHeight()))) {
     ImPlot::SetupAxes("time", "SysTick");
@@ -320,9 +320,9 @@ void Plot_SysTickGraph(USim_Memory *mem, float oldest)
   }
 }
 
-DLLEXPORT bool USim_update(void *usim_rawmem)
+DLLEXPORT bool Plugin_update(void *plugin_rawmem)
 {
-  USim_Memory *mem = (USim_Memory*)usim_rawmem;
+  Plugin_Memory *mem = (Plugin_Memory*)plugin_rawmem;
 
   uint64_t start_ticks = SDL_GetTicksNS();
 
@@ -361,7 +361,7 @@ sdlPollEvent:
   window_flags |= ImGuiWindowFlags_NoMove;
 
   float oldest = mem->newest_time - mem->time_history;
-  if(ImGui::Begin("usim event gathering", 0, window_flags)) {
+  if(ImGui::Begin("plugin event gathering", 0, window_flags)) {
     ImGui::SliderFloat("History", &mem->time_history, 1.0f, 80.0f, "%.1f s");
 
     mem->show_gpio_graph |= ImGui::Button("Show GPIO Graph");
@@ -406,22 +406,22 @@ sdlPollEvent:
 
   /* ----------------------------- */
 
-  USim_Event event;
+  Plugin_Recv_Event event;
   while(mem->api->poll_event(mem->api->channel, &event)) {
     float cur_time = (float)event.instant / 1000'000'000.0f;
     mem->newest_time = SDL_max(cur_time, mem->newest_time);
 
     switch(event.kind) {
-      case Event_Kind_Quit: break;
-      case Event_Kind_Count: break;
+      case Recv_Event_Kind_Quit: break;
+      case Recv_Event_Kind_Count: break;
 
-      case Event_Kind_GPIO: {
+      case Recv_Event_Kind_GPIO: {
         mem->scrolling_gpio_data[event.variant].AddPoint(
           cur_time, (float)event.as.gpio.value
         );
       } break;
 
-      case Event_Kind_SysTick: {
+      case Recv_Event_Kind_SysTick: {
         // Easy way to show when SysTick was called, just make a very thin spike
         // +-1 us
         float prev_instant = cur_time + 0.0000001f;
@@ -444,9 +444,9 @@ sdlPollEvent:
   return false;
 }
 
-DLLEXPORT void USim_deinit(void *usim_rawmem)
+DLLEXPORT void Plugin_deinit(void *plugin_rawmem)
 {
-  USim_Memory *mem = (USim_Memory*)usim_rawmem;
+  Plugin_Memory *mem = (Plugin_Memory*)plugin_rawmem;
 
   ImGui_ImplSDLRenderer3_Shutdown();
   ImGui_ImplSDL3_Shutdown();

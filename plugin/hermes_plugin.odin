@@ -3,10 +3,10 @@
 #+vet unused-variables
 #+vet unused-imports
 #+vet shadowing
-package usim
+package plugin
 
-/* File containing micro simulator API in odin
- * also used to autogenerate usim.h
+/* File containing plugin API in odin
+ * also used to autogenerate hermes_plugin.h
  *
  * Created on: 24 oct. 2026
  *   Author: victor
@@ -15,14 +15,14 @@ package usim
 import "core:dynlib"
 
 API_VERSION_MAJOR :: "0"
-API_VERSION_MINOR :: "1"
+API_VERSION_MINOR :: "2"
 API_VERSION_PATCH :: "0"
 API_VERSION :: API_VERSION_MAJOR + "." + API_VERSION_MINOR + "." + API_VERSION_PATCH
 
 /*
-maximum usims at the same time, limited by a couple of factors
+maximum plugins at the same time, limited by a couple of factors
 */
-MAX_USIMS :: 64
+MAX_PLUGINS :: 64
 
 /*
 Maximum elements in the event queue channel
@@ -35,13 +35,13 @@ QUEUE_MAX_SIZE :: 256
  */
 
 /*
-Provides a way to distinguish between usims to the core simulator
+Provides a way to distinguish between plugins to the core simulator
 */
 Id :: distinct u64
 
 Recv_Channel :: distinct rawptr
 
-Event_Kind :: enum u32 {
+Recv_Event_Kind :: enum u32 {
   /* when the simulator is done, it will enqueue a Quit event */
   Quit = 0,
 
@@ -53,7 +53,7 @@ Event_Kind :: enum u32 {
   Count = 5,
 }
 
-Event_Variant :: enum u32 {
+Recv_Event_Variant :: enum u32 {
   /* GPIO event variants */
 
   // GPIOA pins
@@ -291,68 +291,85 @@ Event_Variant :: enum u32 {
   TIM24_UP_Interrupt = 24,
 }
 
-GPIO_Event :: struct {
+/* Port and pin are given by `Recv_Event` variant */
+GPIO_Recv_Event :: struct {
+  /* 0 or 1 */
   value: u32,
 }
 
-SysTick_Event :: struct {
+SysTick_Recv_Event :: struct {
   /* True when the event was caused by a SysTick interrupt
    * right now, the only event for SysTick
    */
   interrupt_called: bool,
 }
 
-NVIC_Event :: struct {
+NVIC_Recv_Event :: struct {
   /* Interrupt index of the interrupt that was called */
   interrupt_idx: u8,
 }
 
-TIM_Event :: struct {
+/* Which interrupt was called given by `Recv_Event` variant */
+TIM_Recv_Event :: struct {
+  /* always 1, specifies when a TIM interrupt was called */
   dummy: u8,
 }
 
-Event_Info :: struct #raw_union {
-  gpio: GPIO_Event,
-  systick: SysTick_Event,
-  nvic: NVIC_Event,
+Recv_Event_Info :: struct #raw_union {
+  gpio: GPIO_Recv_Event,
+  systick: SysTick_Recv_Event,
+  nvic: NVIC_Recv_Event,
+  tim: TIM_Recv_Event,
 }
 
-Event :: struct {
-  /* This is essentially an Event_Kind but you cannot specify enum size in C, so it must be an u32 */
+/*
+Events recieved from core simulator by plugin
+*/
+Recv_Event :: struct {
+  /* This is essentially a Recv_Event_Kind but you cannot specify enum size in C, so it must be an u32 */
   kind: u32,
-  /* This is essentially an Event_Variant but you cannot specify enum size in C, so it must be an u32 */
+  /* This is essentially a Recv_Event_Variant but you cannot specify enum size in C, so it must be an u32 */
   variant: u32,
   /* the instant when the event was enqueued, in nanoseconds, since the start of the simulation */
   instant: i64,
   board_name: cstring,
-  as: Event_Info,
+  as: Recv_Event_Info,
+}
+
+/*
+Events sent to the core simulator by plugin
+*/
+Send_Event :: struct {
+  // TODO: Will be started in the next commit
+  todo: bool,
 }
 
 /*
 Procedure that will be called after starting up peripherals for a specific board.
-Will be called once for every board dll which this usim is attached to.
+Will be called once for every board dll which this plugin is attached to.
 
 Arguments:
  - `memory`: An already initialized ^peripherals.Memory, should not be written to, only read
- - `api`: The usim api, includes own functions but mostly to access [`Sim_subscribe_event`,`Sim_wait_event`,`Sim_add_event_watch`,`Sim_poll_event`]
- - `board_name`: The board name that was attached to the usim
- - `usim_mem`: A pointer to be filled in with the usim memory given to `Update_Proc` and `Deinit_Proc`, if it is the first call, `usim_mem^` will be nil (`*usim_mem`), else it will be a prevously returned value from Init_Proc
+ - `api`: The plugin api, includes own functions but mostly to access [`Sim_subscribe_event`,`Sim_wait_event`,`Sim_add_event_watch`,`Sim_poll_event`]
+ - `board_name`: The board name that was attached to the plugin
+ - `plugin_id`: Id assigned to this plugin from the core simulator, will be used in `Subscribe_Event_Proc` and `Add_Watch_Event_Proc`
+ - `plugin_mem`: A pointer to be filled in with the plugin memory given to `Update_Proc` and `Deinit_Proc`, if it is the first call, `plugin_mem^` will be nil (`*plugin_mem`), else it will be a prevously returned value from Init_Proc
 Returns:
  - If initialization succeeded
 
 If this returns false, it won't be called again for any other boards
 */
-Init_Proc :: #type proc "c"(memory: rawptr, api: ^API, board_name: cstring, usim_id: Id, usim_mem: ^rawptr) -> bool
+Init_Proc :: #type proc "c"(memory: rawptr, api: ^API, board_name: cstring, plugin_id: Id, plugin_mem: ^rawptr) -> bool
 
 /*
 Procedure that will be called in a loop until `event.kind == .Quit` is true.
 
 Arguments:
- - `usim_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
+ - `plugin_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
 Returns:
  - `end_early`: if end_early is true, `Update_Proc` will stop being called and `Deinit_Proc` will be called once
  */
-Update_Proc :: #type proc "c"(usim_mem: rawptr) -> (end_early: bool)
+Update_Proc :: #type proc "c"(plugin_mem: rawptr) -> (end_early: bool)
 
 /*
 Procedure that will be called in a loop until `event.kind == .Quit` is true.
@@ -360,30 +377,30 @@ Procedure that will be called in a loop until `event.kind == .Quit` is true.
 Be aware that steps are significantly slower since they require a synchronization of all steps in the simulator, so avoid this unless you know what you're doing.
 
 Arguments:
- - `usim_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
+ - `plugin_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
  - `step_time`: the number of nanoseconds to step
 Returns:
  - `end_early`: if end_early is true, `Update_Proc` will stop being called and `Deinit_Proc` will be called once
 */
-Step_Proc :: #type proc "c"(usim_mem: rawptr, step_time: i64) -> (end_early: bool)
+Step_Proc :: #type proc "c"(plugin_mem: rawptr, step_time: i64) -> (end_early: bool)
 
 /*
 Procedure that will be called after the Quit event is given or after the call to `Update_Proc` with `end_early` == true
 
 Arguments:
- - `usim_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
+ - `plugin_mem`: rawptr (same as void*) to memory recieved from `Init_Proc`
 */
-Deinit_Proc :: #type proc "c"(usim_mem: rawptr)
+Deinit_Proc :: #type proc "c"(plugin_mem: rawptr)
 
 /* ----------------------------------------- */
-/* WARNING: Unless advised to do otherwise, only call the following procedures from the main thread of the usim */
+/* WARNING: Unless advised to do otherwise, only call the following procedures from the main thread of the plugin */
 
 /*
-Checks the usim api version is the same as the one used in the core simulator.
+Checks the plugin api version is the same as the one used in the core simulator.
 
 Arguments:
- - `version`: C string to be filled with `USIM_API_VERSION` in C or
-              `usim.API_VERSION` in odin
+ - `version`: C string to be filled with `PLUGIN_API_VERSION` in C or
+              `plugin.API_VERSION` in odin
 Returns:
  - If the version in the core simulator was the same
 */
@@ -393,16 +410,17 @@ Check_Version_Proc :: #type proc "c"(version: cstring) -> bool
 Procedure to call in `Init_Proc` to subscribe to an event kind
 
 Arguments:
- - `id`: The usim id given by `Init_Proc`
+ - `id`: The plugin id given by `Init_Proc`
  - `memory`: The memory given by `Init_Proc`
  - `kind`: the event kind to subscribe to
+ - `variant`: the variant for the event to subscribe to
 Returns:
  - if the operation succeeded or not
 */
-Subscribe_Event_Proc :: #type proc "c"(memory: rawptr, id: Id, kind: Event_Kind, variant: Event_Variant) -> bool
+Subscribe_Event_Proc :: #type proc "c"(memory: rawptr, id: Id, kind: Recv_Event_Kind, variant: Recv_Event_Variant) -> bool
 
 /*
-Procedure to call in `Update_Proc` to check for any new events in this usim's event queue
+Procedure to call in `Update_Proc` to check for any new events in this plugin's event queue
 
 Arguments:
  - `channel`: the channel where to poll events from (found in `api.channel`)
@@ -410,10 +428,10 @@ Arguments:
 Returns:
  - if there was an event
 */
-Poll_Event_Proc :: #type proc "c"(channel: Recv_Channel, event: ^Event) -> bool
+Poll_Event_Proc :: #type proc "c"(channel: Recv_Channel, event: ^Recv_Event) -> bool
 
 /*
-Procedure to call in `Update_Proc` to wait for the next event in this usim's event queue
+Procedure to call in `Update_Proc` to wait for the next event in this plugin's event queue
 
 Arguments:
  - `channel`: the channel where to wait for events from (found in `api.channel`)
@@ -421,10 +439,10 @@ Arguments:
 Returns:
  - if there was an error while trying to gather the newest event
 */
-Wait_Event_Proc :: #type proc "c"(channel: Recv_Channel, event: ^Event) -> bool
+Wait_Event_Proc :: #type proc "c"(channel: Recv_Channel, event: ^Recv_Event) -> bool
 
 /* callback type for `Add_Watch_Event_Proc` */
-Watch_Event_Proc_Callback :: #type proc "c"(event: ^Event, ctx: rawptr)
+Watch_Event_Proc_Callback :: #type proc "c"(event: ^Recv_Event, ctx: rawptr)
 
 /*
 Procedure to call in `Init_Proc` to handle events of a specific kind in a callback.
@@ -433,9 +451,10 @@ WARNING: This callback will be called in a different thread and it is separate f
          Use this sparingly because it will interrupt the board's running thread.
 
 Arguments:
- - `id`: The usim id given by `Init_Proc`
  - `memory`: The memory given by `Init_Proc`
+ - `id`: The plugin id given by `Init_Proc`
  - `kind`: the event kind to be handled in the callback
+ - `variant`: the variant for the event to subscribe to
  - `callback`: the callback that handles this event
  - `ctx`: the context to give to the callback
 Returns:
@@ -444,14 +463,14 @@ Returns:
 Add_Watch_Event_Proc :: #type proc "c"(
   memory: rawptr,
   id: Id,
-  kind: Event_Kind,
-  variant: Event_Variant,
+  kind: Recv_Event_Kind,
+  variant: Recv_Event_Variant,
   callback: Watch_Event_Proc_Callback,
   ctx: rawptr,
 ) -> bool
 
 API :: struct {
-  /* api from core sim to usim */
+  /* api from core sim to plugin */
 
   check_version: Check_Version_Proc,
   subscribe_event: Subscribe_Event_Proc,
@@ -460,26 +479,26 @@ API :: struct {
   add_watch_event: Add_Watch_Event_Proc,
 
   /*
-  Recieve channel for usim, used internally in `poll_event` and `wait_event`
-  will be chan.Chan(Event, .Recv)
+  Recieve channel for plugin, used internally in `poll_event` and `wait_event`
+  will be chan.Chan(Recv_Event, .Recv).impl
   */
   channel: Recv_Channel,
 
-  /* api from usim to core sim (taken from dll) */
+  /* api from plugin to core sim (taken from dll) */
 
   /*
-  Either USim_update or USim_step are expected from the dll.
+  Either Plugin_update or Plugin_step are expected from the dll.
   You may have both but only one will be used at a time depending on
   the configuration in the given cfg.json
   */
 
-  /* USim_init is expected to be found */
+  /* Plugin_init is expected to be found */
   _init:  Init_Proc,
-  /* USim_update is expected to be found */
+  /* Plugin_update is expected to be found */
   _update: Update_Proc,
-  /* USim_step is expected to be found */
+  /* Plugin_step is expected to be found */
   _step: Step_Proc,
-  /* USim_deinit is expected to be found */
+  /* Plugin_deinit is expected to be found */
   _deinit: Deinit_Proc,
 
   _library: dynlib.Library,

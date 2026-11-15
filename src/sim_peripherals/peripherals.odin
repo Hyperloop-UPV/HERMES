@@ -24,7 +24,7 @@ import "core:mem/virtual"
 import "core:sync/chan"
 
 import mcu "mcu:stm32h723xx"
-import "../../usim"
+import "../../plugin"
 
 /*
 Handles any change in the the pages the peripheral uses
@@ -74,12 +74,12 @@ Board_API :: struct {
   library: dynlib.Library,
 }
 
-USim_Event_Key :: struct {
-  kind: usim.Event_Kind,
-  variant: usim.Event_Variant,
+Plugin_Event_Key :: struct {
+  kind: plugin.Recv_Event_Kind,
+  variant: plugin.Recv_Event_Variant,
 }
-USim_Event_Watch_Data :: struct {
-  callback: usim.Watch_Event_Proc_Callback,
+Plugin_Event_Watch_Data :: struct {
+  callback: plugin.Watch_Event_Proc_Callback,
   ctx: rawptr,
 }
 
@@ -400,19 +400,19 @@ Memory :: struct {
   simulation_time: i64,
 
   /*
-  Event queue channels for usim, one per attached usim
+  Event queue channels for plugin, one per attached plugin
   */
-  channels: []chan.Chan(usim.Event, .Send),
+  channels: []chan.Chan(plugin.Recv_Event, .Send),
 
   /*
-  Map which holds indices into channels array, one bit per usim, maximum of 64 (64 bits)
+  Map which holds indices into channels array, one bit per plugin, maximum of 64 (64 bits)
   */
-  subscribed_events: map[USim_Event_Key]u64,
+  subscribed_events: map[Plugin_Event_Key]u64,
 
   /*
   Map which holds event watch callbacks that will be called when an event happens (stopping execution)
   */
-  event_watch: map[USim_Event_Key][]USim_Event_Watch_Data,
+  event_watch: map[Plugin_Event_Key][]Plugin_Event_Watch_Data,
 
   // NOTE: The arena does not support freeing of individual elements,
   //       it is purely for long-lived allocations
@@ -421,15 +421,15 @@ Memory :: struct {
 }
 
 /* see Memory.subscibed_events */
-#assert(usim.MAX_USIMS <= 64)
+#assert(plugin.MAX_PLUGINS <= 64)
 
 /*
 Prepares event with kind, instant and board_name then enqueues it
 into every subscriber's queue and calls event_watch callbacks
 */
-enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Event_Kind, variant: usim.Event_Variant)
+enqueue_event :: proc(memory: ^Memory, event: ^plugin.Recv_Event, event_kind: plugin.Recv_Event_Kind, variant: plugin.Recv_Event_Variant)
 {
-  key := USim_Event_Key {
+  key := Plugin_Event_Key {
     kind = event_kind,
     variant = variant,
   }
@@ -459,7 +459,7 @@ enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Even
 
     ch := memory.channels[idx]
     if chan.is_closed(ch.impl) {
-      // remove the event from the hashmap
+      // remove the event subscriber from the hashmap
       subs_old: u64
       subs_old, found = memory.subscribed_events[key]
       subs_old &= ~(1 << idx)
@@ -470,7 +470,7 @@ enqueue_event :: proc(memory: ^Memory, event: ^usim.Event, event_kind: usim.Even
     // needs some amount of time for timeout because another writer could be blocking
     status := chan.send_with_timeout(ch, event^, 8*time.Microsecond)
     if status != .Ok {
-      log.warnf("Could not add event in queue for usim %d: Queue full", idx)
+      log.warnf("Could not add event in queue for plugin %d: Queue full", idx)
     }
   }
 }

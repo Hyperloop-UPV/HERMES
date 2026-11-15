@@ -30,7 +30,7 @@ import platform "sim_platform"
 import peripherals "sim_peripherals"
 
 import mcu "mcu:stm32h723xx"
-import "../usim"
+import "../plugin"
 
 SIMULATOR_VERSION_MAJOR :: "0"
 SIMULATOR_VERSION_MINOR :: "0"
@@ -57,14 +57,14 @@ load_symbol_or_err :: proc(lib: dynlib.Library, dllpath, symbol: string, fn: ^ra
 /*
 Creates event queue channels
 */
-create_channels :: proc(count: int, allocator: runtime.Allocator) -> []chan.Chan(usim.Event, .Both)
+create_channels :: proc(count: int, allocator: runtime.Allocator) -> []chan.Chan(plugin.Recv_Event, .Both)
 {
-  channels := make([]chan.Chan(usim.Event, .Both), count, allocator)
+  channels := make([]chan.Chan(plugin.Recv_Event, .Both), count, allocator)
   for idx := 0; idx < count; idx += 1 {
     err: runtime.Allocator_Error
     channels[idx], err = chan.create_buffered(
-      chan.Chan(usim.Event, .Both),
-      usim.QUEUE_MAX_SIZE,
+      chan.Chan(plugin.Recv_Event, .Both),
+      plugin.QUEUE_MAX_SIZE,
       allocator,
     )
 
@@ -83,7 +83,7 @@ Destroy event queue channels
 Assumes channels was allocated with an arena allocator,
 because it doesn't free `channels`, only destroys each one
 */
-destroy_channels :: proc(channels: []chan.Chan(usim.Event, .Both))
+destroy_channels :: proc(channels: []chan.Chan(plugin.Recv_Event, .Both))
 {
   for c in channels {
     chan.destroy(c)
@@ -93,7 +93,7 @@ destroy_channels :: proc(channels: []chan.Chan(usim.Event, .Both))
 /* --------------------------------------------- */
 
 global_should_quit: bool
-usim_threads: []^thread.Thread
+plugin_threads: []^thread.Thread
 fw_threads: []^thread.Thread
 
 sim_signal_handler :: proc "contextless"()
@@ -101,13 +101,13 @@ sim_signal_handler :: proc "contextless"()
   libc.printf("recieved signal, closing simulator...\n")
   context = runtime.default_context()
 
-  // we wait for fw threads first because they will likely exit before usim threads
+  // we wait for fw threads first because they will likely exit before plugin threads
 
   global_should_quit = true
   // wait until fw_threads quit 'voluntarily'
   thread.join_multiple(..fw_threads[:])
-  // wait until usim threads quit 'voluntarily'
-  thread.join_multiple(..usim_threads[:])
+  // wait until plugin threads quit 'voluntarily'
+  thread.join_multiple(..plugin_threads[:])
 }
 
 /* --------------------------------------------- */
@@ -141,21 +141,21 @@ main :: proc()
   /* --------------------------------------------- */
 
   memories := make([]^peripherals.Memory, len(opt.board), arena_allocator)
-  channels := create_channels(len(opt.usim), arena_allocator)
+  channels := create_channels(len(opt.plugin), arena_allocator)
   defer {
     for m in memories {
       destroy_board(m)
     }
     destroy_channels(channels)
   }
-  usim_backing := make([]USim_Thread_Data, len(opt.usim), arena_allocator)
-  usim_threads = make([]^thread.Thread, len(opt.usim), arena_allocator)
+  plugin_backing := make([]Plugin_Thread_Data, len(opt.plugin), arena_allocator)
+  plugin_threads = make([]^thread.Thread, len(opt.plugin), arena_allocator)
 
   fw_thread_data := make([]FW_Thread_Data, len(opt.board), arena_allocator)
   fw_threads = make([]^thread.Thread, len(opt.board), arena_allocator)
 
   stepwise_barrier: sync.Barrier
-  sync.barrier_init(&stepwise_barrier, len(fw_threads) + opt.stepwise_usim_count)
+  sync.barrier_init(&stepwise_barrier, len(fw_threads) + opt.stepwise_plugin_count)
   step_time := 10 * time.Microsecond
 
   /* --------------------------------------------- */
@@ -178,17 +178,17 @@ main :: proc()
 
   /* --------------------------------------------- */
 
-  for usim_idx := 0; usim_idx < len(opt.usim); usim_idx += 1 {
-    td := &usim_backing[usim_idx]
-    usim_threads[usim_idx] = launch_usim(
-      td, &opt, &global_should_quit, usim_idx,
-      channels[usim_idx], memories,
+  for plugin_idx := 0; plugin_idx < len(opt.plugin); plugin_idx += 1 {
+    td := &plugin_backing[plugin_idx]
+    plugin_threads[plugin_idx] = launch_plugin(
+      td, &opt, &global_should_quit, plugin_idx,
+      channels[plugin_idx], memories,
       step_time, &stepwise_barrier,
     )
   }
 
   defer {
-    for u in usim_backing {
+    for u in plugin_backing {
       delete(u.attached_memories)
     }
   }
@@ -218,7 +218,7 @@ main :: proc()
     thread.join_multiple(..fw_threads[:])
   }
 
-  // wait until all usim threads quit 'voluntarily'
+  // wait until all plugin threads quit 'voluntarily'
   global_should_quit = true
-  thread.join_multiple(..usim_threads[:])
+  thread.join_multiple(..plugin_threads[:])
 }

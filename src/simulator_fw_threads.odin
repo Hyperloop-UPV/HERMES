@@ -30,7 +30,7 @@ import platform "sim_platform"
 import peripherals "sim_peripherals"
 
 import mcu "mcu:stm32h723xx"
-import "../usim"
+import "../plugin"
 
 Write_Detect_Thread_Data :: struct {
   memory: ^peripherals.Memory,
@@ -117,7 +117,7 @@ destroy_memory :: proc(memory: ^peripherals.Memory)
 
 /* --------------------------------------------- */
 
-create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both)) -> ^peripherals.Memory
+create_board :: proc(dllpath: string, channels: []chan.Chan(plugin.Recv_Event, .Both)) -> ^peripherals.Memory
 {
   // setup allocator for peripheral internal memory.
   // 1 GB reserved but not committed size (virtual memory)
@@ -174,12 +174,12 @@ create_board :: proc(dllpath: string, channels: []chan.Chan(usim.Event, .Both)) 
   }
 
   // setup event queue channels
-  memory.channels = make([]chan.Chan(usim.Event, .Send), len(channels))
+  memory.channels = make([]chan.Chan(plugin.Recv_Event, .Send), len(channels))
   for c, idx in channels {
     memory.channels[idx] = chan.as_send(c)
   }
-  reserve(&memory.subscribed_events, usim.Event_Kind.Count)
-  reserve(&memory.event_watch, usim.Event_Kind.Count)
+  reserve(&memory.subscribed_events, plugin.Recv_Event_Kind.Count)
+  reserve(&memory.event_watch, plugin.Recv_Event_Kind.Count)
 
   return memory
 }

@@ -17,7 +17,7 @@ import "base:intrinsics"
 import "core:time"
 
 import mcu "mcu:stm32h723xx"
-import "../../usim"
+import "../../plugin"
 
 // TODO: GPIOx_LCKR locking mechanism
 
@@ -74,7 +74,7 @@ GPIO_handler :: proc(rawctx, this_rawctx: rawptr)
   // TODO: If this bit gets set in RCC, the event needs to be enqueued
   rcc_bit := u32(rcc.AHB4ENR >> u32(ctx.letter - 'A')) & 1
   if odr_prev != ctx.gpio.ODR && rcc_bit == 1 {
-    event: usim.Event
+    event: plugin.Recv_Event
 
     new_bits := odr_prev ~ ctx.gpio.ODR
     for new_bits != 0 {
@@ -82,7 +82,7 @@ GPIO_handler :: proc(rawctx, this_rawctx: rawptr)
       new_bits &= ~(1 << idx)
 
       event.as.gpio.value = (ctx.gpio.ODR & (1 << idx)) >> idx
-      variant := usim.Event_Variant(
+      variant := plugin.Recv_Event_Variant(
         u32(ctx.letter - 'A')*0x10 + idx,
       )
       enqueue_event(memory, &event, .GPIO, variant)

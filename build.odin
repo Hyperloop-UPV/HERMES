@@ -28,7 +28,7 @@ import "core:reflect"
 
 import custom_log "src/logger"
 
-import "usim"
+import "plugin"
 
 SIMULATOR_NAME :: "hermes"
 
@@ -51,7 +51,7 @@ Build_Options :: struct {
   mode: Build_Mode `args:"pos=0" usage:"Build mode, can be debug, release or rel-debug for release with debug info"`,
   disable_profiling: bool `usage:"Disable or enable profiling. Profiling is enabled by default"`,
   run: bool `usage:"Also run the simulator after building"`,
-  build_example_usims: bool `usage:"Build example usims"`,
+  build_example_plugins: bool `usage:"Build example plugins"`,
 }
 
 run_command :: proc(cmd: []string, cwd := ".") -> (ok: bool)
@@ -97,7 +97,7 @@ append_odin_options :: proc(cmd: ^[dynamic; 256]string, opt: Build_Options)
   }
 }
 
-build_usims :: proc(opt: Build_Options) -> bool
+build_plugins :: proc(opt: Build_Options) -> bool
 {
   VIS_BUILD_SCRIPT :: "build" when ODIN_OS != .Windows else "build.exe"
   cmd: [dynamic; 256]string
@@ -106,18 +106,18 @@ build_usims :: proc(opt: Build_Options) -> bool
   // GUI visualization example
 
   cur_dir, _ := os.get_working_directory(context.temp_allocator)
-  if !os.exists("example-usim/vis/" + VIS_BUILD_SCRIPT) {
+  if !os.exists("example_plugins/vis/" + VIS_BUILD_SCRIPT) {
     when ODIN_OS == .Windows {
       // requires msvc compiler
       append(&cmd, "cl", "build.c")
     } else {
       append(&cmd, "gcc", "build.c", "-o", VIS_BUILD_SCRIPT)
     }
-    run_command(cmd[:], "example-usim/vis") or_return
+    run_command(cmd[:], "example_plugins/vis") or_return
     clear(&cmd)
   }
-  append(&cmd, "example-usim/vis/" + VIS_BUILD_SCRIPT)
-  if !run_command(cmd[:], "example-usim/vis") {
+  append(&cmd, "example_plugins/vis/" + VIS_BUILD_SCRIPT)
+  if !run_command(cmd[:], "example_plugins/vis") {
     os.change_directory(cur_dir)
     return false
   }
@@ -128,8 +128,8 @@ build_usims :: proc(opt: Build_Options) -> bool
   // first and most simple example
 
   append(&cmd,
-    "odin", "build", "example-usim/first",
-    "-out:bin/usim_example." + dynlib.LIBRARY_FILE_EXTENSION,
+    "odin", "build", "example_plugins/first",
+    "-out:bin/plugin_example." + dynlib.LIBRARY_FILE_EXTENSION,
     "-error-pos-style:unix",
     "-collection:mcu=mcu",
     "-build-mode:shared",
@@ -142,8 +142,8 @@ build_usims :: proc(opt: Build_Options) -> bool
   // functional mockup interface example
 
   append(&cmd,
-    "odin", "build", "example-usim/FunctionalMockupInterface",
-    "-out:bin/usim_example_with_fmi." + dynlib.LIBRARY_FILE_EXTENSION,
+    "odin", "build", "example_plugins/FunctionalMockupInterface",
+    "-out:bin/plugin_example_with_fmi." + dynlib.LIBRARY_FILE_EXTENSION,
     "-error-pos-style:unix",
     "-collection:mcu=mcu",
     "-build-mode:shared",
@@ -177,14 +177,14 @@ build_board :: proc(opt: Build_Options) -> bool
   cmd: [dynamic; 256]string
 
   append(&cmd, "gcc",
-    "example-board/src/main.cpp",
-    "example-board/src/system_stm32h7xx.c",
+    "example_board/src/main.cpp",
+    "example_board/src/system_stm32h7xx.c",
     "-DSTM32H723xx",
     "-DSIMULATOR_BUILD",
     "-shared",
     "-o", OUTPUT_DIR + "/test." + dynlib.LIBRARY_FILE_EXTENSION,
     "-Wall", "-Wextra",
-    "-I", "example-board/inc",
+    "-I", "example_board/inc",
     "-Wl,--gc-sections",
     "-fno-threadsafe-statics",
   )
@@ -213,8 +213,8 @@ build :: proc(opt: Build_Options) -> bool
 {
   build_sim(opt) or_return
   build_board(opt) or_return
-  if opt.build_example_usims {
-    build_usims(opt) or_return
+  if opt.build_example_plugins {
+    build_plugins(opt) or_return
   }
 
   return true
@@ -251,7 +251,7 @@ write_string :: proc(f: ^os.File, s: string) {
   }
 }
 
-C_print_any_elem_from_odin :: proc(f: ^os.File, type: ^reflect.Type_Info, name: string, known_type_names: []string, indentation := 2, indent_width := 2, prefix := "USim_")
+C_print_any_elem_from_odin :: proc(f: ^os.File, type: ^reflect.Type_Info, name: string, known_type_names: []string, indentation := 2, indent_width := 2, prefix := "Plugin_")
 {
   indent_buf: [32]u8
   mem.set(&indent_buf, ' ', len(indent_buf))
@@ -455,7 +455,7 @@ C_print_any_elem_from_odin :: proc(f: ^os.File, type: ^reflect.Type_Info, name: 
   write_string(f, name)
 }
 
-C_struct_from_odin_struct :: proc(f: ^os.File, t: reflect.Type_Info_Struct, known_type_names: []string, indentation := 2, indent_width := 2, prefix := "USim_")
+C_struct_from_odin_struct :: proc(f: ^os.File, t: reflect.Type_Info_Struct, known_type_names: []string, indentation := 2, indent_width := 2, prefix := "Plugin_")
 {
   indent_buf: [32]u8
   mem.set(&indent_buf, ' ', len(indent_buf))
@@ -485,43 +485,59 @@ C_struct_from_odin_struct :: proc(f: ^os.File, t: reflect.Type_Info_Struct, know
   }
 }
 
-do_usim_codegen :: proc() -> bool
+do_plugin_codegen :: proc() -> bool
 {
-  write_struct :: proc(f: ^os.File, known_structs: []string, $T: typeid, name: string) {
-    prefix := "USim_"
+  write_struct_or_union :: proc(f: ^os.File, known_structs: []string, $T: typeid, name: string, is_struct: bool) {
+    prefix := "Plugin_"
     name_with_prefix := fmt.tprintf("%s%s", prefix, name)
 
-    write_string(f, "typedef struct ")
+    write_string(f, is_struct ? "typedef struct " : "typedef union ")
+    write_string(f, name_with_prefix)
+    write_string(f, " ")
+    write_string(f, name_with_prefix)
+    write_string(f, ";\n")
+
+    write_string(f, is_struct ? "struct " : "union ")
     write_string(f, name_with_prefix)
     write_string(f, " {\n")
     type_named := type_info_of(T).variant.(runtime.Type_Info_Named)
     type := type_named.base.variant.(runtime.Type_Info_Struct)
     C_struct_from_odin_struct(f, type, known_structs, prefix = prefix)
-    write_string(f, "} ")
-    write_string(f, name_with_prefix)
-    write_string(f, ";\n\n")
+    write_string(f, "};\n\n")
   }
 
-  os.make_directory("usim")
-  output_lib := "usim/usim.h"
+  write_struct :: #force_inline proc(f: ^os.File, known_structs: []string, $T: typeid, name: string) {
+    // is_struct = true
+    write_struct_or_union(f, known_structs, T, name, true)
+  }
+  write_union :: #force_inline proc(f: ^os.File, known_structs: []string, $T: typeid, name: string) {
+    // is_struct = false
+    write_struct_or_union(f, known_structs, T, name, false)
+  }
+
+  os.make_directory("plugin")
+  output_lib := "plugin/hermes_plugin.h"
   f, err := os.open(output_lib, {.Write, .Trunc, .Create})
   fmt.assertf(err == nil, "could not open '%s' file for writing: %v", output_lib, err)
   defer os.close(f)
 
   known_structs := []string{
-    "Event_Info",
-    "Event",
-    "GPIO_Mod_Event",
-    "SysTick_Event",
-    "NVIC_Event",
-    "TIM_Event",
-    "API",
+    "GPIO_Recv_Event",
+    "SysTick_Recv_Event",
+    "NVIC_Recv_Event",
+    "TIM_Recv_Event",
+
+    "Recv_Event_Info",
+    "Recv_Event",
+
     "Recv_Channel",
+    "Send_Channel",
+    "API",
   }
 
   write_string(f,
-    "#ifndef USIM_H\n" +
-    "#define USIM_H\n" +
+    "#ifndef HERMES_PLUGIN_H\n" +
+    "#define HERMES_PLUGIN_H\n" +
     "\n",
   )
 
@@ -530,7 +546,7 @@ do_usim_codegen :: proc() -> bool
   )
 
   write_string(f,
-    "/* File containing micro simulator API in C/C++\n" +
+    "/* File containing hermes plugin API in C/C++\n" +
     " *\n" +
     " * Created on: 24 oct. 2026\n" +
     " *   Author: victor\n" +
@@ -544,59 +560,56 @@ do_usim_codegen :: proc() -> bool
     "#include <stdbool.h>\n\n",
   )
 
-  write_string(f, "#define USIM_API_VERSION_MAJOR ")
-  write_string(f, usim.API_VERSION_MAJOR)
-  write_string(f, "\n#define USIM_API_VERSION_MINOR ")
-  write_string(f, usim.API_VERSION_MINOR)
-  write_string(f, "\n#define USIM_API_VERSION_PATCH ")
-  write_string(f, usim.API_VERSION_PATCH)
+  write_string(f, "#define PLUGIN_API_VERSION_MAJOR ")
+  write_string(f, plugin.API_VERSION_MAJOR)
+  write_string(f, "\n#define PLUGIN_API_VERSION_MINOR ")
+  write_string(f, plugin.API_VERSION_MINOR)
+  write_string(f, "\n#define PLUGIN_API_VERSION_PATCH ")
+  write_string(f, plugin.API_VERSION_PATCH)
   write_string(f,
-    "\n#define USIM_API_VERSION \\\n" +
-    "  USIM_API_VERSION_MAJOR \".\" \\\n" +
-    "  USIM_API_VERSION_MINOR \".\" \\\n" +
-    "  USIM_API_VERSION_PATCH\n" +
+    "\n#define PLUGIN_API_VERSION \\\n" +
+    "  PLUGIN_API_VERSION_MAJOR \".\" \\\n" +
+    "  PLUGIN_API_VERSION_MINOR \".\" \\\n" +
+    "  PLUGIN_API_VERSION_PATCH\n" +
     "\n",
   )
 
-  write_string(f, "typedef enum USim_Event_Kind {\n")
-  for kind in reflect.enum_fields_zipped(usim.Event_Kind) {
-    line := fmt.tprintfln("  %s%s = %v,", "Event_Kind_", kind.name, i64(kind.value))
+  write_string(f,
+    "typedef void* Plugin_Recv_Channel;\n" +
+    "typedef void* Plugin_Send_Channel;\n\n",
+  )
+
+  write_string(f, "typedef enum Plugin_Recv_Event_Kind {\n")
+  for kind in reflect.enum_fields_zipped(plugin.Recv_Event_Kind) {
+    line := fmt.tprintfln("  %s%s = %v,", "Recv_Event_Kind_", kind.name, i64(kind.value))
     write_string(f, line)
   }
-  write_string(f, "} USim_Event_Kind;\n\n")
+  write_string(f, "} Plugin_Recv_Event_Kind;\n\n")
 
-  write_string(f, "typedef enum USim_Event_Variant {\n")
-  for kind in reflect.enum_fields_zipped(usim.Event_Variant) {
-    line := fmt.tprintfln("  %s%s = %v,", "Event_Variant_", kind.name, i64(kind.value))
+  write_string(f, "typedef enum Plugin_Recv_Event_Variant {\n")
+  for kind in reflect.enum_fields_zipped(plugin.Recv_Event_Variant) {
+    line := fmt.tprintfln("  %s%s = %v,", "Recv_Event_Variant_", kind.name, i64(kind.value))
     write_string(f, line)
   }
-  write_string(f, "} USim_Event_Variant;\n\n")
+  write_string(f, "} Plugin_Recv_Event_Variant;\n\n")
 
-  write_struct(f, known_structs, usim.GPIO_Event, "GPIO_Mod_Event")
-  write_struct(f, known_structs, usim.SysTick_Event, "SysTick_Event")
-  write_struct(f, known_structs, usim.NVIC_Event, "NVIC_Event")
-  write_struct(f, known_structs, usim.TIM_Event, "TIM_Event")
+  write_struct(f, known_structs, plugin.GPIO_Recv_Event, "GPIO_Recv_Event")
+  write_struct(f, known_structs, plugin.SysTick_Recv_Event, "SysTick_Recv_Event")
+  write_struct(f, known_structs, plugin.NVIC_Recv_Event, "NVIC_Recv_Event")
+  write_struct(f, known_structs, plugin.TIM_Recv_Event, "TIM_Recv_Event")
+  write_union(f, known_structs, plugin.Recv_Event_Info, "Recv_Event_Info")
+  write_struct(f, known_structs, plugin.Recv_Event, "Recv_Event")
 
-  write_string(f, "typedef union USim_Event_Info {\n")
-  event_info_named := type_info_of(usim.Event_Info).variant.(runtime.Type_Info_Named)
-  event_info := event_info_named.base.variant.(runtime.Type_Info_Struct)
-  C_struct_from_odin_struct(f, event_info, known_structs, prefix = "USim_")
-  write_string(f, "} USim_Event_Info;\n\n")
+  write_struct(f, known_structs, plugin.API, "API")
 
-  write_struct(f, known_structs, usim.Event, "Event")
-
-  write_string(f, "typedef void* USim_Recv;\n\n")
-
-  write_struct(f, known_structs, usim.API, "API")
-
-  write_string(f, "#endif // USIM_H\n")
+  write_string(f, "#endif // HERMES_PLUGIN_H\n")
 
   return true
 }
 
 do_codegen :: proc() -> bool
 {
-  do_usim_codegen() or_return
+  do_plugin_codegen() or_return
   do_linux_syscalls_codegen() or_return
 
   return true

@@ -95,7 +95,7 @@ int main(int argc, char **argv)
       "src/main.cpp",
       "bin/*" VL_OBJ_EXT
     ),
-    .output = "usim-vis",
+    .output = "plugin-vis",
     .outputDir = "bin",
 
     .includePaths = VL_GetDaStrSlice("include"),

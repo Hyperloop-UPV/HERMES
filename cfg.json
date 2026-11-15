@@ -7,7 +7,7 @@
 
   "usims": [
     {
-      "dll": "example-usim/vis/bin/usim-vis",
+      "dll": "example-usim/vis/bin/plugin-vis",
       "is_stepwise": false,
       "attached_boards": [
         "test"

@@ -15,8 +15,8 @@ package peripherals
 import "core:time"
 
 import mcu "mcu:stm32h723xx"
-// will be used for events (soon)
-import "../../usim"
+
+import "../../plugin"
 
 // CR1 register bit values
 
@@ -395,8 +395,8 @@ call_update_interrupt :: proc(memory: ^Memory, ctx: ^TIM_Context)
   ctx.tim.SR |= 1 << SR_UIF_Offset
   ctx.irq_addr^()
 
-  event: usim.Event
-  enqueue_event(memory, &event, .TIM, usim.Event_Variant(ctx.tim_num))
+  event: plugin.Recv_Event
+  enqueue_event(memory, &event, .TIM, plugin.Recv_Event_Variant(ctx.tim_num))
 }
 
 TIM_handler :: proc(rawctx, this_rawctx: rawptr)

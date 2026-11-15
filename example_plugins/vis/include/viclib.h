@@ -99,7 +99,7 @@ SOFTWARE.
 // NOTE: tcc doesn't support thread-local storage
 // TODO: thread local storage using win32/unistd?
 //       using VL_Init() to start it up?
-# define thread_local 
+# define thread_local
 #else
 /* unsupported compiler, to support, define:
  necessary:
@@ -389,10 +389,10 @@ thread_local error_number_value VL_ErrorNumber = ERROR_NO_ERROR;
 # define VLIBPROC
 #endif
 
-/* bool found = false; 
+/* bool found = false;
  * LinearSearch(string_view_array, string_view, ViewEq);
  * if(found) {...}
- * 
+ *
  * string_view_array must have count and items attributes
  */
 #define LinearSearch(arr, item, equal) \
@@ -774,7 +774,7 @@ VLIBPROC void *ExpArrayAppend_Generic(memory_arena *arena, exp_array_hdr *xar, e
 raddbg_type_view(view, text(array($.items, $.count)));
 
 #if defined(SDL_h_)
-raddbg_type_view(SDL_Surface, $.format == SDL_PixelFormat.SDL_PIXELFORMAT_RGBA32 ? 
+raddbg_type_view(SDL_Surface, $.format == SDL_PixelFormat.SDL_PIXELFORMAT_RGBA32 ?
     bitmap($.pixels, $.w, $.h, RGBA32) : $);
 #endif
 #endif // COMPILER_CL
@@ -842,7 +842,7 @@ VLIBPROC bool GetLastWriteTime(const char *file, u64 *WriteTime);
 VLIBPROC file_type VL_GetFileType(const char *path);
 
 #define VL_NANOS_PER_SEC 1000000000
-// Gets nanoseconds since the time VL_Init() was called, 
+// Gets nanoseconds since the time VL_Init() was called,
 // if it wasn't called, it will get nanoseconds since unspecified epoch
 VLIBPROC u64 VL_GetNanos(void);
 
@@ -1350,7 +1350,7 @@ int ViewParseF64(view v, f64 *result, view *remaining)
 
             if(ExponentStr.count < 1) break;
             if(*ExponentStr.items > '9' || *ExponentStr.items < '0') break;
-            
+
             FoundExponent = true;
             size_t ExpEnd = 0;
             for(; ExpEnd < ExponentStr.count; ExpEnd++) {
@@ -1463,7 +1463,7 @@ VLIBPROC void mem_copy(void *dst, const void *src, size_t len)
 			}
 			while(len >= sizeof(size_t)) {
                 len -= sizeof(size_t);
-                *(__attribute__((__may_alias__)) size_t*)(d + len) = 
+                *(__attribute__((__may_alias__)) size_t*)(d + len) =
                     *(__attribute__((__may_alias__)) size_t*)(s + len);
             }
         }
@@ -1979,7 +1979,7 @@ bool IsDebuggerPresent(void)
     const char *tracer_pid_ptr = strstr(buf, tracerPidString); // TODO: use ViewFind (when it is better)
     if (!tracer_pid_ptr)
         return false;
-    
+
     for(const char* characterPtr = tracer_pid_ptr + sizeof(tracerPidString) - 1; characterPtr <= buf + num_read; ++characterPtr) {
         if (is_space(*characterPtr))
             continue;
@@ -2045,7 +2045,7 @@ VLIBPROC u64 VL_GetNanos(void)
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
     u64 secs = time.QuadPart / VL_globalContext.performanceFrequency.QuadPart;
-    u64 nanos = (time.QuadPart % VL_globalContext.performanceFrequency.QuadPart) * 
+    u64 nanos = (time.QuadPart % VL_globalContext.performanceFrequency.QuadPart) *
         VL_NANOS_PER_SEC / VL_globalContext.performanceFrequency.QuadPart;
     return (VL_NANOS_PER_SEC * secs + nanos) - VL_globalContext.initTime;
 #elif OS_LINUX || OS_MAC
@@ -2343,7 +2343,7 @@ VLIBPROC const char *VL_GetError(void) {
         case ERROR_FILE_ACCESS_DENIED: return "Access denied";
         case ERROR_NO_MEM: return "No remaining memory";
         case ERROR_READ_FILE_TOO_BIG: return "File too large";
-    
+
         case ERROR_NO_ERROR:
         default: return "Unknown error";
     }
@@ -2454,7 +2454,7 @@ void VL_HeapSort(void *Data, size_t Count, size_t ElementSize, bool (*less_than)
             if(Child + 1 < Count && less_than((u8*)Data + Child*ElementSize, (u8*)Data + (Child+1)*ElementSize)) {
                 Child++;
             }
-            
+
             if(less_than((u8*)Data + Root*ElementSize, (u8*)Data + Child*ElementSize)) {
                 VL_SwapSize((u8*)Data + Root*ElementSize, (u8*)Data + Child*ElementSize, ElementSize);
                 Root = Child;
@@ -2463,17 +2463,17 @@ void VL_HeapSort(void *Data, size_t Count, size_t ElementSize, bool (*less_than)
             }
         }
     }
-    
+
     for(size_t End = Count - 1; End > 0; End--) {
         VL_SwapSize(Data, (u8*)Data + End*ElementSize, ElementSize);
-        
+
         size_t Root = 0;
         while(2*Root + 1 < End) {
             size_t Child = 2*Root + 1;
             if(Child + 1 < End && less_than((u8*)Data + Child*ElementSize, (u8*)Data + (Child+1)*ElementSize)) {
                 Child++;
             }
-            
+
             if(less_than((u8*)Data + Root*ElementSize, (u8*)Data + Child*ElementSize)) {
                 VL_SwapSize((u8*)Data + Root*ElementSize, (u8*)Data + Child*ElementSize, ElementSize);
                 Root = Child;

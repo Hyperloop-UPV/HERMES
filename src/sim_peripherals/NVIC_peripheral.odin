@@ -14,7 +14,7 @@ package peripherals
 import "core:time"
 import "core:slice"
 
-import "../../usim"
+import "../../plugin"
 
 /*
 When an ISER bit gets set, the same ICER bit needs to be set from handler
@@ -41,7 +41,7 @@ call_interrupt :: proc(memory: ^Memory, int_idx: u8)
 
   vector()
 
-  event: usim.Event
+  event: plugin.Recv_Event
   event.as.nvic.interrupt_idx = int_idx
   enqueue_event(memory, &event, .NVIC, .NVIC_Interrupt)
 }
