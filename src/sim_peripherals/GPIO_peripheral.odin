@@ -55,7 +55,46 @@ GPIO_Context :: struct {
 
 GPIO_handle_event :: proc(rawctx: rawptr, event: ^plugin.Send_Event)
 {
-  // TODO ...
+  memory := cast(^Memory)rawctx
+  gpio_array := [?]^mcu.GPIO {
+    memory.GPIOA_base,
+    memory.GPIOB_base,
+    memory.GPIOC_base,
+    memory.GPIOD_base,
+    memory.GPIOE_base,
+    memory.GPIOF_base,
+    memory.GPIOG_base,
+    memory.GPIOH_base,
+    nil,
+    memory.GPIOJ_base,
+    memory.GPIOK_base,
+  }
+
+  // 10 pins per gpio variant, variants start at 0
+  gpio_idx := u32(event.variant / 0x10)
+  if gpio_idx > len(gpio_array) {
+    // gpio is not in STM32h723xx
+    return
+  }
+
+  gpio := gpio_array[gpio_idx]
+  if gpio == nil {
+    // gpio is not in STM32h723xx (probably gpioI)
+    return
+  }
+
+  // now gpio_idx will be the pin we want to set
+  gpio_idx = event.variant % 0x10
+  gpio_bit := u32(1 << gpio_idx)
+
+  if (gpio.MODER & (1 << gpio_idx*2)) != 0 {
+    // gpio is not in input mode
+    return
+  }
+
+  new_odr := gpio.ODR & ~gpio_bit
+  new_odr = new_odr | (event.as.gpio.value << gpio_idx)
+  gpio.ODR = new_odr
 }
 
 GPIO_handler :: proc(rawctx, this_rawctx: rawptr)
