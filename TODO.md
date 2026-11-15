@@ -8,16 +8,15 @@
  - [x] Global arena for core simulator, since most allocations are a one time thing
  - [ ] Handle Ctrl+C to join all active threads
 
-## micro viewing simulators (simulators that might log data, etc.)
- - [x] Calling micro simulators from super simulator (core simulator). Load dll etc.
- - [x] Event queue for micro simulators. Example: GPIOx pin value changes, SysTick interrupts, etc.
+## plugins
+ - [x] Calling plugins from hermes (core simulator). Load dll etc.
+ - [x] Event queue for plugins. Example: GPIOx pin value changes, SysTick interrupts, etc.
  - [x] Subscribing to events to avoid sending unwanted events ?
- - [x] Micro viewing simulator example
-
-## micro emulating simulators
- - [x] Make a slightly different interface for emulating simulators, for example for emulating an AFE (Analog Front End)
- - [ ] Event system from usim to core simulator (other way round)
- - [ ] Micro emulating simulator example
+ - [x] Plugin example
+ - [x] FMI plugin example
+ - [x] Make a slightly different interface for emulating plugins, for example for emulating an AFE (Analog Front End)
+ - [ ] Event system from plugin to core simulator (other way round)
+ - [ ] Emulating plugin example
 
 ## Peripherals
  - [ ] Finish SCB peripheral

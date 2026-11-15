@@ -7,7 +7,7 @@
 
 #include <SDL3/SDL.h>
 
-/* File containing simple visual micro simulator
+/* File containing simple visual plugin for hermes
  *
  * Created on: 27 oct. 2026
  *   Author: victor

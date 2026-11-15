@@ -7,7 +7,7 @@
 #define CCompiler CCompiler_GPlusPlus
 #endif
 
-/* File containing build script for simple visual micro simulator
+/* File containing build script for simple visual plugin
  *
  * Created on: 27 oct. 2026
  *   Author: victor

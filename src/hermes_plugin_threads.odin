@@ -6,8 +6,8 @@
 package simulator
 
 /* File containing
- *  - dll loading for micro simulators
- *  - thread code for micro simulators
+ *  - dll loading for plugins
+ *  - thread code for plugins
  *
  * Created on: 31 oct. 2026
  *   Author: victor
