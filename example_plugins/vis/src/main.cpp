@@ -154,9 +154,11 @@ bool Init_Window(Plugin_Memory *mem)
   return true;
 }
 
-DLLEXPORT bool Plugin_init(void *memory, Plugin_API *api, const char *board_name, uint64_t plugin_id, void **plugin_rawmem)
+DLLEXPORT bool Plugin_init(void *memory, Plugin_API *api, const char *board_name, Plugin_Send_Channel send_channel, uint64_t plugin_id, void **plugin_rawmem)
 {
   (void)board_name;
+  (void)send_channel;
+
   Plugin_Memory *plugin_mem;
   if(!(*plugin_rawmem)) {
     plugin_mem = (Plugin_Memory*)SDL_calloc(1, sizeof(Plugin_Memory));

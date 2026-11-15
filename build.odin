@@ -522,6 +522,9 @@ do_plugin_codegen :: proc() -> bool
   defer os.close(f)
 
   known_structs := []string{
+    "Recv_Channel",
+    "Send_Channel",
+
     "GPIO_Recv_Event",
     "SysTick_Recv_Event",
     "NVIC_Recv_Event",
@@ -530,8 +533,13 @@ do_plugin_codegen :: proc() -> bool
     "Recv_Event_Info",
     "Recv_Event",
 
-    "Recv_Channel",
-    "Send_Channel",
+    /////////////////////
+
+    "GPIO_Send_Event",
+
+    "Send_Event_Info",
+    "Send_Event",
+
     "API",
   }
 
@@ -599,6 +607,10 @@ do_plugin_codegen :: proc() -> bool
   write_struct(f, known_structs, plugin.TIM_Recv_Event, "TIM_Recv_Event")
   write_union(f, known_structs, plugin.Recv_Event_Info, "Recv_Event_Info")
   write_struct(f, known_structs, plugin.Recv_Event, "Recv_Event")
+
+  write_struct(f, known_structs, plugin.GPIO_Send_Event, "GPIO_Send_Event")
+  write_union(f, known_structs, plugin.Send_Event_Info, "Send_Event_Info")
+  write_struct(f, known_structs, plugin.Send_Event, "Send_Event")
 
   write_struct(f, known_structs, plugin.API, "API")
 

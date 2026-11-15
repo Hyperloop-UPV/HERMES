@@ -13,7 +13,10 @@ package simulator
  *   Author: victor
  */
 
+import "base:runtime"
+
 import "core:os"
+import "core:fmt"
 import "core:log"
 import "core:mem"
 import "core:time"
@@ -23,12 +26,12 @@ import "core:thread"
 import "core:sync/chan"
 
 import peripherals "sim_peripherals"
-
 import "../plugin"
 
 Plugin_Thread_Data :: struct {
   attached_memories: []^peripherals.Memory,
   board_names: []cstring,
+  board_send_channels: []chan.Chan(plugin.Send_Event, .Both),
   plugin_dll: string,
   plugin_api: plugin.API,
   global_should_quit: ^bool,
@@ -139,6 +142,21 @@ Plugin_add_watch_event :: proc "c"(rawmem: rawptr, id: plugin.Id, kind: plugin.R
   return true
 }
 
+Plugin_send_event :: proc "c"(channel: plugin.Send_Channel, event: ^plugin.Send_Event) -> bool
+{
+  if event.kind == 0 || event.kind >= u32(plugin.Send_Event_Kind.Count) {
+    return false
+  }
+
+  // Needs a minimum amount of time since another writer could be blocking
+  status := chan.send_raw_with_timeout(cast(^chan.Raw_Chan)channel, event, 8*time.Microsecond)
+  if status != .Ok {
+    context = runtime.default_context()
+    fmt.eprintln("Could not add event in queue for plugin: Queue full")
+  }
+  return status == .Ok
+}
+
 /* --------------------------------------------- */
 
 /* Thread procedure for a single plugin */
@@ -159,8 +177,9 @@ plugin_thread_proc :: proc(rawdata: rawptr)
   for i := 0; i < len(data.attached_memories); i += 1 {
     memory := data.attached_memories[i]
     name := data.board_names[i]
+    channel := plugin.Send_Channel(data.board_send_channels[i].impl)
     init_ok = init_ok &&
-      data.plugin_api._init(memory, &data.plugin_api, name, data.plugin_id, &ctx)
+      data.plugin_api._init(memory, &data.plugin_api, name, channel, data.plugin_id, &ctx)
   }
 
   if !init_ok {
@@ -191,11 +210,16 @@ plugin_thread_proc :: proc(rawdata: rawptr)
 
 /* --------------------------------------------- */
 
-launch_plugin :: proc(backing: ^Plugin_Thread_Data, opt: ^Sim_Options, global_should_quit: ^bool, idx: int, channel: chan.Chan(plugin.Recv_Event, .Both), memories: []^peripherals.Memory, step_time: time.Duration, step_barrier: ^sync.Barrier) -> ^thread.Thread
+launch_plugin :: proc(
+  backing: ^Plugin_Thread_Data, opt: ^Sim_Options, global_should_quit: ^bool, idx: int,
+  channel: chan.Chan(plugin.Recv_Event, .Both), send_channels: []chan.Chan(plugin.Send_Event, .Both),
+  memories: []^peripherals.Memory, step_time: time.Duration, step_barrier: ^sync.Barrier,
+) -> ^thread.Thread
 {
   u := &opt.plugin[idx]
 
   backing.board_names = u.attached_boards
+  backing.board_send_channels = send_channels
   backing.plugin_dll = u.dll
   backing.global_should_quit = global_should_quit
   backing.plugin_id = plugin.Id(idx)

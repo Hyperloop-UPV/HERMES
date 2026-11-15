@@ -14,7 +14,7 @@
 #include <stdbool.h>
 
 #define PLUGIN_API_VERSION_MAJOR 0
-#define PLUGIN_API_VERSION_MINOR 2
+#define PLUGIN_API_VERSION_MINOR 3
 #define PLUGIN_API_VERSION_PATCH 0
 #define PLUGIN_API_VERSION \
   PLUGIN_API_VERSION_MAJOR "." \
@@ -251,6 +251,23 @@ struct Plugin_Recv_Event {
   Plugin_Recv_Event_Info as;
 };
 
+typedef struct Plugin_GPIO_Send_Event Plugin_GPIO_Send_Event;
+struct Plugin_GPIO_Send_Event {
+  uint32_t value;
+};
+
+typedef union Plugin_Send_Event_Info Plugin_Send_Event_Info;
+union Plugin_Send_Event_Info {
+  Plugin_GPIO_Send_Event gpio;
+};
+
+typedef struct Plugin_Send_Event Plugin_Send_Event;
+struct Plugin_Send_Event {
+  uint32_t kind;
+  uint32_t variant;
+  Plugin_Send_Event_Info as;
+};
+
 typedef struct Plugin_API Plugin_API;
 struct Plugin_API {
   bool (*check_version)(const char* version);
@@ -258,8 +275,9 @@ struct Plugin_API {
   bool (*poll_event)(void *channel, Plugin_Recv_Event *event);
   bool (*wait_event)(void *channel, Plugin_Recv_Event *event);
   bool (*add_watch_event)(void *memory, uint64_t id, Plugin_Recv_Event_Kind kind, Plugin_Recv_Event_Variant variant, void (*callback)(Plugin_Recv_Event *event, void *ctx), void *ctx);
+  bool (*send_event)(void *memory, void *send_channel, Plugin_Send_Event *event);
   void *channel;
-  bool (*_init)(void *memory, Plugin_API *api, const char* board_name, uint64_t plugin_id, void **plugin_mem);
+  bool (*_init)(void *memory, Plugin_API *api, const char* board_name, void *send_channel, uint64_t plugin_id, void **plugin_mem);
   bool (*_update)(void *plugin_mem);
   bool (*_step)(void *plugin_mem, int64_t step_time);
   void (*_deinit)(void *plugin_mem);

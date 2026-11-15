@@ -53,6 +53,11 @@ GPIO_Context :: struct {
   letter: u8,
 }
 
+GPIO_handle_event :: proc(rawctx: rawptr, event: ^plugin.Send_Event)
+{
+  // TODO ...
+}
+
 GPIO_handler :: proc(rawctx, this_rawctx: rawptr)
 {
   memory := cast(^Memory)rawctx

@@ -54,16 +54,13 @@ load_symbol_or_err :: proc(lib: dynlib.Library, dllpath, symbol: string, fn: ^ra
 
 /* --------------------------------------------- */
 
-/*
-Creates event queue channels
-*/
-create_channels :: proc(count: int, allocator: runtime.Allocator) -> []chan.Chan(plugin.Recv_Event, .Both)
+create_channels :: proc($T: typeid, count: int, allocator: runtime.Allocator) -> []chan.Chan(T, .Both)
 {
-  channels := make([]chan.Chan(plugin.Recv_Event, .Both), count, allocator)
+  channels := make([]chan.Chan(T, .Both), count, allocator)
   for idx := 0; idx < count; idx += 1 {
     err: runtime.Allocator_Error
     channels[idx], err = chan.create_buffered(
-      chan.Chan(plugin.Recv_Event, .Both),
+      chan.Chan(T, .Both),
       plugin.QUEUE_MAX_SIZE,
       allocator,
     )
@@ -81,11 +78,14 @@ create_channels :: proc(count: int, allocator: runtime.Allocator) -> []chan.Chan
 Destroy event queue channels
 
 Assumes channels was allocated with an arena allocator,
-because it doesn't free `channels`, only destroys each one
+because it doesn't free the channel slices, only destroys each one
 */
-destroy_channels :: proc(channels: []chan.Chan(plugin.Recv_Event, .Both))
+destroy_channels :: proc(recv_channels: []chan.Chan(plugin.Recv_Event, .Both), send_channels: []chan.Chan(plugin.Send_Event, .Both))
 {
-  for c in channels {
+  for c in recv_channels {
+    chan.destroy(c)
+  }
+  for c in send_channels {
     chan.destroy(c)
   }
 }
@@ -141,13 +141,15 @@ main :: proc()
   /* --------------------------------------------- */
 
   memories := make([]^peripherals.Memory, len(opt.board), arena_allocator)
-  channels := create_channels(len(opt.plugin), arena_allocator)
+  recv_channels := create_channels(plugin.Recv_Event, len(opt.plugin), arena_allocator)
+  send_channels := create_channels(plugin.Send_Event, len(opt.board), arena_allocator)
   defer {
     for m in memories {
       destroy_board(m)
     }
-    destroy_channels(channels)
+    destroy_channels(recv_channels, send_channels)
   }
+
   plugin_backing := make([]Plugin_Thread_Data, len(opt.plugin), arena_allocator)
   plugin_threads = make([]^thread.Thread, len(opt.plugin), arena_allocator)
 
@@ -161,7 +163,7 @@ main :: proc()
   /* --------------------------------------------- */
 
   for board, board_idx in opt.board {
-    memories[board_idx] = create_board(board, channels)
+    memories[board_idx] = create_board(board, recv_channels, send_channels[board_idx])
   }
 
   log.infof("Total page count: %v", memories[0].pageCount * len(opt.board))
@@ -182,8 +184,8 @@ main :: proc()
     td := &plugin_backing[plugin_idx]
     plugin_threads[plugin_idx] = launch_plugin(
       td, &opt, &global_should_quit, plugin_idx,
-      channels[plugin_idx], memories,
-      step_time, &stepwise_barrier,
+      recv_channels[plugin_idx], send_channels,
+      memories, step_time, &stepwise_barrier,
     )
   }
 

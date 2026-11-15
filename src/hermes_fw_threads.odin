@@ -117,7 +117,15 @@ destroy_memory :: proc(memory: ^peripherals.Memory)
 
 /* --------------------------------------------- */
 
-create_board :: proc(dllpath: string, channels: []chan.Chan(plugin.Recv_Event, .Both)) -> ^peripherals.Memory
+init_event_vtable :: proc(memory: ^peripherals.Memory)
+{
+  reserve(&memory.event_send_vtable, plugin.Send_Event_Kind.Count)
+  memory.event_send_vtable[.GPIO] = peripherals.GPIO_handle_event
+}
+
+/* --------------------------------------------- */
+
+create_board :: proc(dllpath: string, recv_channels: []chan.Chan(plugin.Recv_Event, .Both), send_channel: chan.Chan(plugin.Send_Event, .Both)) -> ^peripherals.Memory
 {
   // setup allocator for peripheral internal memory.
   // 1 GB reserved but not committed size (virtual memory)
@@ -174,12 +182,15 @@ create_board :: proc(dllpath: string, channels: []chan.Chan(plugin.Recv_Event, .
   }
 
   // setup event queue channels
-  memory.channels = make([]chan.Chan(plugin.Recv_Event, .Send), len(channels))
-  for c, idx in channels {
+  memory.channels = make([]chan.Chan(plugin.Recv_Event, .Send), len(recv_channels))
+  for c, idx in recv_channels {
     memory.channels[idx] = chan.as_send(c)
   }
+  memory.send_channel = chan.as_recv(send_channel)
   reserve(&memory.subscribed_events, plugin.Recv_Event_Kind.Count)
   reserve(&memory.event_watch, plugin.Recv_Event_Kind.Count)
+
+  init_event_vtable(memory)
 
   return memory
 }
@@ -196,6 +207,7 @@ destroy_board :: proc(memory: ^peripherals.Memory)
   }
   delete(memory.event_watch)
   delete(memory.subscribed_events)
+  delete(memory.event_send_vtable)
 
   /* NOTE: This has to be last because `memory` is part of the arena */
   destroy_memory(memory)

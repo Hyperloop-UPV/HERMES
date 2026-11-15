@@ -5,9 +5,9 @@
     "bin/test"
   ],
 
-  "usims": [
+  "plugins": [
     {
-      "dll": "example-usim/vis/bin/plugin-vis",
+      "dll": "example_plugins/vis/bin/plugin-vis",
       "is_stepwise": false,
       "attached_boards": [
         "test"

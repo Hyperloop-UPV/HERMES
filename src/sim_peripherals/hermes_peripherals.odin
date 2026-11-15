@@ -30,17 +30,17 @@ import "../../plugin"
 Handles any change in the the pages the peripheral uses
 
 Arguments:
- - `rawctx`: will contain a ^Memory
- - `this_rawctx`: will contain a rawptr returned from the function in `SetupFn`
+ - `rawctx`: Will contain a ^Memory
+ - `this_rawctx`: Will contain a rawptr returned from the function in `SetupFn`
 */
-Handler_Proc :: proc(rawctx, this_rawctx: rawptr)
+Handler_Proc :: #type proc(rawctx, this_rawctx: rawptr)
 
 /*
 Setup function for a peripheral, will be called before the first step(),
 after allocating ^Memory
 
 Arguments:
- - `rawctx`: will contain a ^Memory
+ - `rawctx`: Will contain a ^Memory
 Returns:
  - a rawptr to the memory required for StepFn
 */
@@ -51,10 +51,19 @@ Step function that will be called when doing a single step(),
 whether it is a fixed step or a variable step
 
 Arguments:
- - `rawctx`: will contain a ^Memory
- - `this_rawctx`: will contain a rawptr returned from the function in `SetupFn`
+ - `rawctx`: Will contain a ^Memory
+ - `this_rawctx`: Will contain a rawptr returned from the function in `SetupFn`
 */
 Step_Proc :: #type proc(rawctx, this_rawctx: rawptr, step_time: time.Duration)
+
+/*
+Handles events coming from plugins. This is meant to handle a single event.kind
+
+Arguments:
+ - `rawctx`: Will contain a ^Memory
+ - `event`: The event to handle
+*/
+Event_Handler_Proc :: #type proc(rawctx: rawptr, event: ^plugin.Send_Event)
 
 /*
 Holds the function pointers necessary for simulating a peripheral
@@ -400,9 +409,14 @@ Memory :: struct {
   simulation_time: i64,
 
   /*
-  Event queue channels for plugin, one per attached plugin
+  Event queue channels for sending to plugin, one per attached plugin
   */
   channels: []chan.Chan(plugin.Recv_Event, .Send),
+
+  /*
+  Event queue channel for recieving from plugin (one per board)
+  */
+  send_channel: chan.Chan(plugin.Send_Event, .Recv),
 
   /*
   Map which holds indices into channels array, one bit per plugin, maximum of 64 (64 bits)
@@ -413,6 +427,11 @@ Memory :: struct {
   Map which holds event watch callbacks that will be called when an event happens (stopping execution)
   */
   event_watch: map[Plugin_Event_Key][]Plugin_Event_Watch_Data,
+
+  /*
+  Map which holds event handlers for events sent from plugins
+  */
+  event_send_vtable: map[plugin.Send_Event_Kind]Event_Handler_Proc,
 
   // NOTE: The arena does not support freeing of individual elements,
   //       it is purely for long-lived allocations

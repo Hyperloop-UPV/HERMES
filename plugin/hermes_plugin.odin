@@ -15,7 +15,7 @@ package plugin
 import "core:dynlib"
 
 API_VERSION_MAJOR :: "0"
-API_VERSION_MINOR :: "2"
+API_VERSION_MINOR :: "3"
 API_VERSION_PATCH :: "0"
 API_VERSION :: API_VERSION_MAJOR + "." + API_VERSION_MINOR + "." + API_VERSION_PATCH
 
@@ -40,6 +40,11 @@ Provides a way to distinguish between plugins to the core simulator
 Id :: distinct u64
 
 Recv_Channel :: distinct rawptr
+Send_Channel :: distinct rawptr
+
+///////////////////////////////////////////////////////////////////////////
+// Recv Events - events to be sent from the core simulator to the plugin
+///////////////////////////////////////////////////////////////////////////
 
 Recv_Event_Kind :: enum u32 {
   /* when the simulator is done, it will enqueue a Quit event */
@@ -336,12 +341,43 @@ Recv_Event :: struct {
   as: Recv_Event_Info,
 }
 
+///////////////////////////////////////////////////////////////////////////
+// Send Events - events to send from the plugin to the core simulator
+///////////////////////////////////////////////////////////////////////////
+
+Send_Event_Kind :: enum u32 {
+  /*
+  This event will be ignored.
+  It is kept in case of 0 initialization and forgetting after to set it
+  */
+  None = 0,
+
+  GPIO = 1,
+
+  Count = 2,
+}
+
+/* For now, only GPIO is included and the variants are the same */
+Send_Event_Variant :: Recv_Event_Variant
+
+GPIO_Send_Event :: struct {
+  /* 0 or 1 */
+  value: u32,
+}
+
+Send_Event_Info :: struct #raw_union {
+  gpio: GPIO_Send_Event,
+}
+
 /*
 Events sent to the core simulator by plugin
 */
 Send_Event :: struct {
-  // TODO: Will be started in the next commit
-  todo: bool,
+  /* This is essentially a Send_Event_Kind but you cannot specify enum size in C, so it must be an u32 */
+  kind: u32,
+  /* This is essentially a Send_Event_Variant but you cannot specify enum size in C, so it must be an u32 */
+  variant: u32,
+  as: Send_Event_Info,
 }
 
 /*
@@ -352,6 +388,7 @@ Arguments:
  - `memory`: An already initialized ^peripherals.Memory, should not be written to, only read
  - `api`: The plugin api, includes own functions but mostly to access [`Sim_subscribe_event`,`Sim_wait_event`,`Sim_add_event_watch`,`Sim_poll_event`]
  - `board_name`: The board name that was attached to the plugin
+ - `send_channel`: This board's send channel to send `Send_Event`'s to the core simulator from the plugin
  - `plugin_id`: Id assigned to this plugin from the core simulator, will be used in `Subscribe_Event_Proc` and `Add_Watch_Event_Proc`
  - `plugin_mem`: A pointer to be filled in with the plugin memory given to `Update_Proc` and `Deinit_Proc`, if it is the first call, `plugin_mem^` will be nil (`*plugin_mem`), else it will be a prevously returned value from Init_Proc
 Returns:
@@ -359,7 +396,7 @@ Returns:
 
 If this returns false, it won't be called again for any other boards
 */
-Init_Proc :: #type proc "c"(memory: rawptr, api: ^API, board_name: cstring, plugin_id: Id, plugin_mem: ^rawptr) -> bool
+Init_Proc :: #type proc "c"(memory: rawptr, api: ^API, board_name: cstring, send_channel: Send_Channel, plugin_id: Id, plugin_mem: ^rawptr) -> bool
 
 /*
 Procedure that will be called in a loop until `event.kind == .Quit` is true.
@@ -469,6 +506,20 @@ Add_Watch_Event_Proc :: #type proc "c"(
   ctx: rawptr,
 ) -> bool
 
+/*
+Procedure to call to send an event to a specific board in the core simulator
+
+Arguments:
+ - `memory`: The board's memory, given in `Init_Proc`
+ - `send_channel`: The board's send channel, given in `Init_Proc`
+ - `event`: The event to send to the board
+Returns:
+ - If there was an error while sending the event
+
+As long as the event is valid, this function should always return true
+*/
+Send_Event_Proc :: #type proc "c"(memory: rawptr, send_channel: Send_Channel, event: ^Send_Event) -> bool
+
 API :: struct {
   /* api from core sim to plugin */
 
@@ -477,6 +528,7 @@ API :: struct {
   poll_event: Poll_Event_Proc,
   wait_event: Wait_Event_Proc,
   add_watch_event: Add_Watch_Event_Proc,
+  send_event: Send_Event_Proc,
 
   /*
   Recieve channel for plugin, used internally in `poll_event` and `wait_event`

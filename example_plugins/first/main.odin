@@ -23,7 +23,7 @@ Plugin_Memory :: struct {
 }
 
 @(export)
-Plugin_init :: proc "c"(memory: rawptr, api: ^plugin.API, board_name: cstring, plugin_id: plugin.Id, plugin_rawmem: ^rawptr) -> bool
+Plugin_init :: proc "c"(memory: rawptr, api: ^plugin.API, board_name: cstring, send_channel: plugin.Send_Channel, plugin_id: plugin.Id, plugin_rawmem: ^rawptr) -> bool
 {
   plugin_mem: ^Plugin_Memory
   if plugin_rawmem^ == nil {
