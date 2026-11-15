@@ -8,8 +8,8 @@ This is a simulator. Not an emulator (yet).
 Version `0.9` (first release):
  - [x] Multiple boards running in the same 'step time'
  - [x] Global barrier for all `step` functions/procedures in the simulator ([#4](https://github.com/Hyperloop-UPV/HERMES/issues/4))
- - [x] Event system from core sim to usim
- - [ ] Event system from usim to core sim ([#5](https://github.com/Hyperloop-UPV/HERMES/issues/5))
+ - [x] Event system from core sim to plugin
+ - [ ] Event system from plugin to core sim ([#5](https://github.com/Hyperloop-UPV/HERMES/issues/5))
  - [ ] Handle Ctrl+C to stop the simulator from running in a graceful way ([#3](https://github.com/Hyperloop-UPV/HERMES/issues/3))
  - [x] SysTick emulation
  - [/] GPIO emulation (output is done, input is not)
@@ -49,9 +49,9 @@ on windows:
 odin build . -out:build.exe
 build
 ```
-You can build the usim examples by adding `-build-example-usims` in build script:
+You can build the plugin examples by adding `-build-example-plugins` in build script:
 ```
-./build -build-example-usims
+./build -build-example-plugins
 ```
 
 ### Source structure
@@ -62,7 +62,7 @@ You can build the usim examples by adding `-build-example-usims` in build script
  - `sim_peripherals`: contains all simulation for peripherals
  - `mcu/stm32h723xx/core_cm7.odin`: contains definitions for cm7 core registers
  - `mcu/stm32h723xx/stm32h723xx.odin`: contains definitions for stm32h723xx peripheral registers
- - `usim`: contains the api for micro simulators
+ - `plugin`: contains the api for plugins
 
 Extra info:
  - `build.odin`: odin build script for the simulator
@@ -70,10 +70,10 @@ Extra info:
  - `Changes.md`: lists changes that had to be made to make the simulated board code compile/run
  - `codegen/ioctl_defs_linux.c`: small code to autogenerate `sim_platform_linux_ioctls.odin`
  - `example-board`: an example code for a board
- - `example-usim`: example micro simulator code
- - `example-usim/first`: a very simple example of a micro simulator
- - `example-usim/vis`: a visualization micro simulator
- - `example-usim/FunctionalMockupInterface`: an example micro simulator that loads and runs a FMU
+ - `example-plugin`: example plugin code
+ - `example-plugin/first`: a very simple example of a plugin
+ - `example-plugin/vis`: a visualization plugin
+ - `example-plugin/FunctionalMockupInterface`: an example plugin that loads and runs a FMU
  - `ols.json`: odin language server config, to specify any collections used
 
 ### Reasoning for the language we are going to use
