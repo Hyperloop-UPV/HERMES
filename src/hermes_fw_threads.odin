@@ -235,6 +235,7 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
       break
     }
 
+    // Write detection
     pageCount: uint = memory.pageCount
     ok := platform.get_written_pages(
       memory.base,
@@ -256,6 +257,13 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
 
         memory.handlers[pageIdx](memory, data.simArray[pageIdx].this_ctx)
       }
+    }
+
+    // Event handling
+    event: plugin.Send_Event = ---
+    for chan.recv_raw_with_timeout(memory.send_channel.impl, &event, time.Duration(0)) == .Ok {
+      key := plugin.Send_Event_Kind(event.kind)
+      memory.event_send_vtable[key](memory, &event)
     }
 
     diff := time.tick_diff(start_tick, time.tick_now())
