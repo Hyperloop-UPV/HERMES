@@ -1,5 +1,8 @@
 #include "../../../plugin/hermes_plugin.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
@@ -65,6 +68,10 @@ struct Plugin_Memory {
   ImGuiIO *imgui_io;
   ImGuiStyle *imgui_style;
 
+  SDL_Texture *microcontroller_img;
+  int microcontroller_width;
+  int microcontroller_height;
+
   ScrollingBuffer scrolling_gpio_data[Recv_Event_Variant_GPIO_PK15];
   ScrollingBuffer scrolling_systick_data;
   float newest_time;
@@ -72,8 +79,47 @@ struct Plugin_Memory {
 
   bool show_gpio_graph;
   bool show_systick_graph;
+  bool show_microcontroller;
   bool show_implot_style_editor;
 };
+
+// Returns true on success, outputs texture pointer and dimensions
+bool LoadTextureFromFile(const char *filename, SDL_Renderer *renderer, SDL_Texture **out_texture, int *out_width, int *out_height)
+{
+  int width = 0;
+  int height = 0;
+  int channels = 4;
+  // Force 4 channels
+  unsigned char* data = stbi_load(filename, &width, &height, &channels, 4);
+  if(!data) {
+    SDL_Log("Failed to load image %s: %s", filename, stbi_failure_reason());
+    return false;
+  }
+
+  int pitch = width * 4;
+  SDL_Surface* surface = SDL_CreateSurfaceFrom(
+    width, height, SDL_PIXELFORMAT_RGBA32, data, pitch
+  );
+  if(!surface) {
+    SDL_Log("Failed to create surface: %s", SDL_GetError());
+    stbi_image_free(data);
+    return false;
+  }
+
+  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+  SDL_DestroySurface(surface);
+  stbi_image_free(data);
+
+  if(!texture) {
+    SDL_Log("Failed to create texture: %s", SDL_GetError());
+    return false;
+  }
+
+  *out_texture = texture;
+  *out_width = width;
+  *out_height = height;
+  return true;
+}
 
 bool Init_Window(Plugin_Memory *mem)
 {
@@ -322,6 +368,12 @@ void Plot_SysTickGraph(Plugin_Memory *mem, float oldest)
   }
 }
 
+void MicrocontrollerWindow(Plugin_Memory *mem)
+{
+  // TODO
+
+}
+
 DLLEXPORT bool Plugin_update(void *plugin_rawmem)
 {
   Plugin_Memory *mem = (Plugin_Memory*)plugin_rawmem;
@@ -378,6 +430,14 @@ sdlPollEvent:
     if(mem->show_systick_graph) {
       if(ImGui::Begin("SysTick Graph", &mem->show_systick_graph)) {
         Plot_SysTickGraph(mem, oldest);
+      }
+      ImGui::End();
+    }
+
+    mem->show_microcontroller |= ImGui::Button("Show Microcontroller");
+    if(mem->show_systick_graph) {
+      if(ImGui::Begin("Microcontroller", &mem->show_microcontroller)) {
+        MicrocontrollerWindow(mem);
       }
       ImGui::End();
     }

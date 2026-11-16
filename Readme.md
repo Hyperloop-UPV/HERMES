@@ -12,7 +12,7 @@ Version `0.9` (first release):
  - [x] Event system from plugin to core sim ([#5](https://github.com/Hyperloop-UPV/HERMES/issues/5))
  - [ ] Handle Ctrl+C to stop the simulator from running in a graceful way ([#3](https://github.com/Hyperloop-UPV/HERMES/issues/3))
  - [x] SysTick emulation
- - [/] GPIO emulation (output is done, input is not)
+ - [x] GPIO emulation
  - [x] Basic timer emulation
  - [ ] PWM emulation
  - [ ] DMA emulation

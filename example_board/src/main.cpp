@@ -3,6 +3,8 @@
 //#include "simulator.h"
 #include "simulator.c"
 
+#define DO_RANDOM_GPIO_OUTPUT 0
+
 void init_systick(void)
 {
   SysTick->CTRL &= ~SysTick_CTRL_CLKSOURCE_Msk;
@@ -43,6 +45,7 @@ extern "C" void Board_init(void *mem)
   start_gpio_allpins(GPIOH, 'H');
   start_gpio_allpins(GPIOJ, 'J');
   start_gpio_allpins(GPIOK, 'K');
+
   //RCC->AHB4ENR |= 1 << (portletter - 'A');
   //GPIOB->MODER |= 1 << (pin * 2);
 
@@ -112,6 +115,8 @@ void toggle_led_pattern(GPIO_TypeDef *gpio, uint32_t *seed)
 
 extern "C" void SysTick_Handler(void)
 {
+  // stop doing random gpio output when testing for other stuff in the simulator
+#if DO_RANDOM_GPIO_OUTPUT
   static uint32_t seeds['K' - 'A' + 1] = {
     120241,
     120242,
@@ -136,7 +141,7 @@ extern "C" void SysTick_Handler(void)
   toggle_led_pattern(GPIOH, &seeds['H' - 'A']);
   toggle_led_pattern(GPIOJ, &seeds['J' - 'A']);
   toggle_led_pattern(GPIOK, &seeds['K' - 'A']);
-  //toggle_led();
+#endif
 }
 
 #ifndef SIMULATOR_BUILD
