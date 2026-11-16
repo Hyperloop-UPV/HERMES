@@ -262,8 +262,11 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
     // Event handling
     event: plugin.Send_Event = ---
     for chan.recv_raw_with_timeout(memory.send_channel.impl, &event, time.Duration(0)) == .Ok {
-      key := plugin.Send_Event_Kind(event.kind)
-      memory.event_send_vtable[key](memory, &event)
+      #no_bounds_check {
+        // no need to bounds check here since it is already done when enqueueing an event
+        key := plugin.Send_Event_Kind(event.kind)
+        memory.event_send_vtable[key](memory, &event)
+      }
     }
 
     diff := time.tick_diff(start_tick, time.tick_now())
