@@ -371,7 +371,8 @@ void Plot_SysTickGraph(Plugin_Memory *mem, float oldest)
 void MicrocontrollerWindow(Plugin_Memory *mem)
 {
   // TODO
-
+  // img_size being width & height in an ImVec2
+  // ImGui::Image((ImTextureRef)(intptr_t)texture, img_size)
 }
 
 DLLEXPORT bool Plugin_update(void *plugin_rawmem)
