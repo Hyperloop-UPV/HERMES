@@ -255,7 +255,9 @@ write_detect_thread_proc :: proc(rawdata: rawptr)
         // NOTE: This will get optimized to a right shift
         pageIdx := u32(pageOffset) / u32(mem.PAGE_SIZE)
 
-        memory.handlers[pageIdx](memory, data.simArray[pageIdx].this_ctx)
+        #no_bounds_check {
+          memory.handlers[pageIdx](memory, data.simArray[pageIdx].this_ctx)
+        }
       }
     }
 
